@@ -1,13 +1,15 @@
 import {storageHandler} from "./storageHandler";
 
-class Lambda {
-    private storage: any;
+export class Lambda {
+    public storage: storageHandler;
     public projectName: string;
     public taskName: string;
+    public type: string;
 
-    constructor(projectName, taskName) {
+    constructor(projectName, taskName, type) {
         this.storage = new storageHandler();
         this.projectName = projectName;
         this.taskName = taskName;
+        this.type = type;
     }
 }

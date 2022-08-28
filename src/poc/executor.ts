@@ -5,6 +5,7 @@ import {parseExpression} from "cron-parser";
 import Web3 from "web3";
 import fetch from "node-fetch";
 import path = require("path");
+import {Lambda} from "./lambda"
 
 function getAllFiles(dirPath: string, arrayOfFiles: string[] = []) {
     const files = readdirSync(dirPath)
@@ -54,7 +55,8 @@ class Engine {
     private guardians: any;
     public running: number;
     public isLeader: boolean
-    public lambdaList: {};
+    public lambdas: {};
+    private currentProject: string;
 
 
     constructor(rpcUrls: {}, guardians: string[]) {
@@ -65,8 +67,18 @@ class Engine {
         this.storage = {};
         this.guardians = guardians;
         this.running = 0;
-        this.isLeader = this.checkIfLeader()
-        this.lambdaList = {}
+        this.isLeader = this.checkIfLeader();
+        this.lambdas = {};
+        this.currentProject = "";
+    }
+
+    run (tasksMap) {
+        for (const project in tasksMap) {
+            this.currentProject = project;
+            this.lambdas[project] = []
+            require(tasksMap[project])(this);
+        }
+        console.log(this.lambdas)
     }
 
     checkIfLeader() {
@@ -74,6 +86,9 @@ class Engine {
     }
 
     onSchedule(fn, pattern, network, config) {
+        const lambda = new Lambda(this.currentProject, fn.name, "onSchedule")
+        this.lambdas[this.currentProject].push(lambda)
+
         const _this = this;
         pattern = normalizeSchedulePattern(pattern);
         if (pattern) {
@@ -81,7 +96,6 @@ class Engine {
                 _this.running++;
                 await fn(_this.web3[network], _this.storage, _this.guardians, config)
                 _this.running--;
-
             });
         }
     }
@@ -91,7 +105,9 @@ class Engine {
     }
 
     onEvent(fn, contractAddress, abi, eventNames, network, config) {
-        console.log(fn)
+        const lambda = new Lambda(this.currentProject, fn.name, "onEvent")
+        this.lambdas[this.currentProject].push(lambda)
+
         const _this = this;
         const web3 = this.web3[network];
         const contract = new web3.eth.Contract(abi, web3.utils.toChecksumAddress(contractAddress));
@@ -99,7 +115,7 @@ class Engine {
             contract.events[event]({fromBlock: 'latest'})
                 .on('data', async event => {
                     _this.running++;
-                    await fn(web3, _this.storage, _this.guardians, config, event)
+                    await fn(web3, lambda.storage, _this.guardians, config, event)
                     _this.running--;
                 })
                 .on('changed', changed => console.log(changed))
@@ -110,6 +126,14 @@ class Engine {
 }
 
 async function main() {
+    const tasksList = {};
+    getAllFiles("../../src").forEach(fileName => {
+        if (fileName.match("/projects\/.*index.js")) {
+            const projectName = path.basename(path.dirname(fileName))
+            tasksList[projectName] = fileName;
+        }
+    });
+
     const guardians = await getGuardians('https://status.orbs.network/json') // TODO localhost
     const engine = new Engine(
         {
@@ -128,13 +152,8 @@ async function main() {
         process.exit(0)
     })
 
-    getAllFiles("../../src").forEach(fileName => {
-        if (fileName.match("/projects\/.*index.js")) {
-            const projectName = path.basename(path.dirname(fileName))
-            console.log(projectName);
-            require(fileName)(engine);
-        }
-    });
+    engine.run(tasksList);
+
 }
 
 

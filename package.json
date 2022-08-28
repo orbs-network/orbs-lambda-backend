@@ -28,8 +28,7 @@
   },
   "scripts": {
     "build": "tsc --skipLibCheck",
-    "predocker": "npm run build",
-    "docker": "docker build -t orbs-lambda-test .",
+    "docker": "./docker-build.sh",
     "start": "node dist/index.js"
   },
   "author": "",
