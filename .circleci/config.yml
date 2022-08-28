@@ -40,7 +40,6 @@ jobs:
       - node/install-packages
       - run: npm install --no-save tap-xunit
       - run: npm test
-      - run: npm run build
       - run: ./docker-build.sh
       - run: ./.circleci/release-to-staging.sh
 
