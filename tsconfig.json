@@ -17,7 +17,7 @@
         "node_modules",
         "**/test/*",
         "dist",
-        "**/project*/*",
+        "**/projects/*",
         "src/signer_poc.ts"
     ]
 }
