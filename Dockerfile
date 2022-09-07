@@ -16,4 +16,4 @@ COPY ./entrypoint.sh /opt/orbs/service
 # install healthcheck based on status.json
 COPY ./healthcheck.sh ./
 COPY ./healthcheck.js ./
-HEALTHCHECK CMD /opt/orbs/healthcheck
+HEALTHCHECK CMD /opt/orbs/healthcheck.sh
