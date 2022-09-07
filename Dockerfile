@@ -9,10 +9,11 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm install
 
+COPY dist ./dist
+
+COPY ./entrypoint.sh /opt/orbs/service
+
 # install healthcheck based on status.json
 COPY ./healthcheck.sh ./
 COPY ./healthcheck.js ./
-HEALTHCHECK CMD /opt/orbs/healthcheck.sh
-
-COPY dist ./dist
-CMD [ "npm", "start" ]
+HEALTHCHECK CMD /opt/orbs/healthcheck
