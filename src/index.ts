@@ -19,10 +19,15 @@ execSync('git clone https://github.com/orbs-network/orbs-lambda')
 let oldRevision = execSync('git rev-parse HEAD', {"cwd": "./orbs-lambda"}).toString().trim()
 
 async function main() {
+    console.log("Looking for Git changes...");
     while (true) {
-        console.log("Looking for Git changes...");
         const newRevision = execSync('git rev-parse HEAD', {"cwd": "./orbs-lambda"}).toString().trim();
-        if (newRevision !== oldRevision) console.log("New commit found", newRevision);
+        if (newRevision !== oldRevision) {
+            console.log("New commit found", newRevision);
+            // stop executor
+            // pull changes
+            // start executor
+        }
         oldRevision = newRevision;
 
         myStatus.Timestamp = new Date().toISOString();
