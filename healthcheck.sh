@@ -1,2 +1,3 @@
-#!/bin/sh
+#!/bin/sh +x
+
 node ./healthcheck.js
