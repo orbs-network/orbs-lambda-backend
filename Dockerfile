@@ -17,5 +17,4 @@ COPY ./entrypoint.sh /opt/orbs/service
 COPY ./healthcheck.sh ./
 COPY ./healthcheck.js ./
 
-RUN chmod a+x /opt/orbs/service /opt/orbs/healthcheck.sh
 HEALTHCHECK CMD /opt/orbs/healthcheck.sh
