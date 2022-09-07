@@ -3,7 +3,7 @@ FROM node:16-alpine
 # standard working directory
 WORKDIR /opt/orbs
 
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ git
 
 # install your app
 COPY package*.json ./

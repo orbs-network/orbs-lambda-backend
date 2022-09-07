@@ -1,5 +1,5 @@
 import {outputFileSync} from "fs-extra"
-// import {execSync} from "child_process";
+import {execSync} from "child_process";
 
 const myStatus = {
     "Error": "Human readable explanation of current error, field exists only if the status is erroneous.",
@@ -15,14 +15,15 @@ const myStatus = {
     "config": {}
 }
 
-// let oldRevision = execSync('git rev-parse HEAD').toString().trim()
+execSync('git clone https://github.com/orbs-network/orbs-lambda')
+let oldRevision = execSync('git rev-parse HEAD', {"cwd": "./orbs-lambda"}).toString().trim()
 
 async function main() {
     while (true) {
-        // console.log("Looking for Git changes...");
-        // const newRevision = execSync('git rev-parse HEAD').toString().trim();
-        // if (newRevision !== oldRevision) console.log("New commit found", newRevision);
-        // oldRevision = newRevision;
+        console.log("Looking for Git changes...");
+        const newRevision = execSync('git rev-parse HEAD', {"cwd": "./orbs-lambda"}).toString().trim();
+        if (newRevision !== oldRevision) console.log("New commit found", newRevision);
+        oldRevision = newRevision;
 
         myStatus.Timestamp = new Date().toISOString();
         outputFileSync('./status/status.json', JSON.stringify(myStatus));
