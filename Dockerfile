@@ -18,3 +18,6 @@ COPY ./healthcheck.sh ./
 COPY ./healthcheck.js ./
 
 HEALTHCHECK CMD /opt/orbs/healthcheck.sh
+
+# for debugging locally
+CMD /opt/orbs/service
