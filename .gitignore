@@ -72,3 +72,5 @@ custom_typings/
 
 #DS_Store
 .DS_Store
+
+e2e/signer/keys.json

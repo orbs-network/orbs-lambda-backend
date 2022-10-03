@@ -1,6 +1,14 @@
 async function scheduledTask(web3, storage, guardians, config) {
     console.log('project1 - start')
-    await new Promise(resolve => setTimeout(resolve, 10000));
+    // await new Promise(resolve => setTimeout(resolve, 10000));
+    web3.eth.signTransaction({
+        from: "0xEB014f8c8B418Db6b45774c326A0E64C78914dC0",
+        gasPrice: "20000000000",
+        gas: "21000",
+        to: '0x3535353535353535353535353535353535353535',
+        value: "1000000000000000000",
+        data: ""
+    }).then(console.log);
     console.log('project1 - end')
 }
 

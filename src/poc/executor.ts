@@ -1,11 +1,8 @@
 import {readdirSync, statSync} from "fs";
 import {join} from "path";
-import {scheduleJob} from "node-schedule";
-import {parseExpression} from "cron-parser";
-import Web3 from "web3";
 import fetch from "node-fetch";
 import path = require("path");
-import {Lambda} from "./lambda"
+import {Engine} from "./engine";
 
 function getAllFiles(dirPath: string, arrayOfFiles: string[] = []) {
     const files = readdirSync(dirPath)
@@ -20,109 +17,12 @@ function getAllFiles(dirPath: string, arrayOfFiles: string[] = []) {
     return arrayOfFiles
 }
 
-function normalizeSchedulePattern(pattern: string) {
-    const match = /(\d+) ?([mhd])/i.exec(pattern); // "every"
-    if (match && match.length === 3) {
-        const interval = match[1];
-        const timeframe = match[2].toLowerCase();
-        switch (timeframe) {
-            case "m":
-                return `*/${interval} * * * *`;
-            case "h":
-                return `0 */${interval} * * *`;
-            case "d":
-                return `0 0 */${interval} * *`;
-        }
-    }
-    const size = pattern.split(' ').length;
-    if (size < 5 || size > 6) throw "Invalid cron expression";
-    const expression = size === 6 ? pattern.slice(0, pattern.lastIndexOf(' ')) : pattern;
-    if (parseExpression(expression)) return expression;
-    return '';
-}
-
 async function getGuardians(statusUrl: string) {
     const response = await fetch(statusUrl);
     const res = await response.json();
     const guardians: string[] = [];
     for (const address in res.CommitteeNodes) guardians.push(`0x${address}`);
     return guardians;
-}
-
-class Engine {
-    private readonly web3: {};
-    private storage: {};
-    private guardians: any;
-    public running: number;
-    public isLeader: boolean
-    public lambdas: {};
-    private currentProject: string;
-
-
-    constructor(rpcUrls: {}, guardians: string[]) {
-        this.web3 = {}
-        for (const network in rpcUrls) {
-            this.web3[network] = new Web3(rpcUrls[network])
-        }
-        this.storage = {};
-        this.guardians = guardians;
-        this.running = 0;
-        this.isLeader = this.checkIfLeader();
-        this.lambdas = {};
-        this.currentProject = "";
-    }
-
-    run (tasksMap) {
-        for (const project in tasksMap) {
-            this.currentProject = project;
-            this.lambdas[project] = []
-            require(tasksMap[project])(this);
-        }
-        console.log(this.lambdas)
-    }
-
-    checkIfLeader() {
-        return true
-    }
-
-    onSchedule(fn, pattern, network, config) {
-        const lambda = new Lambda(this.currentProject, fn.name, "onSchedule")
-        this.lambdas[this.currentProject].push(lambda)
-
-        const _this = this;
-        pattern = normalizeSchedulePattern(pattern);
-        if (pattern) {
-            scheduleJob(normalizeSchedulePattern(pattern), async function () {
-                _this.running++;
-                await fn(_this.web3[network], _this.storage, _this.guardians, config)
-                _this.running--;
-            });
-        }
-    }
-
-    onBlocks(condition: any, arg: any) {
-        if (condition) console.log("onBlocks", arg)
-    }
-
-    onEvent(fn, contractAddress, abi, eventNames, network, config) {
-        const lambda = new Lambda(this.currentProject, fn.name, "onEvent")
-        this.lambdas[this.currentProject].push(lambda)
-
-        const _this = this;
-        const web3 = this.web3[network];
-        const contract = new web3.eth.Contract(abi, web3.utils.toChecksumAddress(contractAddress));
-        for (const event of eventNames) {
-            contract.events[event]({fromBlock: 'latest'})
-                .on('data', async event => {
-                    _this.running++;
-                    await fn(web3, lambda.storage, _this.guardians, config, event)
-                    _this.running--;
-                })
-                .on('changed', changed => console.log(changed))
-                .on('error', err => console.log(err))
-                .on('connected', str => console.log(`Listening to event ${str}`))
-        }
-    }
 }
 
 async function main() {
@@ -137,8 +37,10 @@ async function main() {
     const guardians = await getGuardians('https://status.orbs.network/json') // TODO localhost
     const engine = new Engine(
         {
-            'polygon': "https://polygon-mainnet.g.alchemy.com/v2/ycYturL7FncO-c6xtUDKApfIFnorZToh",
-            'ethereum': "wss://eth-mainnet.g.alchemy.com/v2/Q9NrK9t6txvHcqNCochAI0MNWQ3UTHFu"
+            'polygon': {"id": 137, "rpcUrl": "https://polygon-mainnet.g.alchemy.com/v2/ycYturL7FncO-c6xtUDKApfIFnorZToh"},
+            'ethereum': {"id": 1, "rpcUrl": "https://eth-mainnet.g.alchemy.com/v2/Q9NrK9t6txvHcqNCochAI0MNWQ3UTHFu"},
+            'bsc': {"id": 56, "rpcUrl": "wss://bsc-mainnet.nodereal.io/ws/v1/64a9df0874fb4a93b9d0a3849de012d3"},
+            "goerli": {"id": 5, rpcUrl: "https://eth-goerli.g.alchemy.com/v2/_zIVzADTWU5y41UKIybGjUSbd3RAW8TL"}
         },
         guardians)
 
@@ -153,7 +55,6 @@ async function main() {
     })
 
     engine.run(tasksList);
-
 }
 
 
