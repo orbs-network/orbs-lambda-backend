@@ -3,9 +3,9 @@ import Web3 from "web3";
 import {Lambda} from "./lambda";
 import {scheduleJob} from "node-schedule";
 import {convertIntervalToCron, validateCron} from "./utils";
-import SignerProvider from 'ethjs-provider-signer';
 import {AbiItem} from "web3-utils";
 import {ContractOptions} from "web3-eth-contract";
+import {SignerProvider} from "./customProvider"
 
 export class Engine {
     private web3: {} = {};
@@ -28,29 +28,11 @@ export class Engine {
         this.initWeb3(networksMapping)
     }
 
-    // _initWeb3(networksMapping) {
-    //     const _this = this;
-    //     for (const network in networksMapping) {
-    //         const provider = new HookedWeb3Provider({
-    //             host: networksMapping[network].rpcUrl,
-    //             transaction_signer: {
-    //                 hasAddress: function (address, callback) {
-    //                     callback(null, true)
-    //                 },
-    //                 signTransaction: async (txData, cb) => {
-    //                     const result = await _this.signer.sign(txData, 1);
-    //                     cb(null, result.rawTransaction);
-    //                 }
-    //             }
-    //         });
-    //         this.web3[network] = new Web3(provider);
-    //     }
-    // }
-
     initWeb3(networksMapping) {
         const _this = this;
         for (const network in networksMapping) {
-            const provider = new SignerProvider(networksMapping[network].rpcUrl, {
+            const provider = new SignerProvider({
+                host: networksMapping[network].rpcUrl,
                 signTransaction: async (txData, cb) => {
                     txData.gasLimit = txData.gas ?? await this.web3[network].eth.estimateGas(txData)
                     const result = await _this.signer.sign(txData, networksMapping[network].id);
@@ -60,11 +42,7 @@ export class Engine {
             this.web3[network] = new Web3(provider);
             this.web3[network].eth.defaultAccount = '0x216FF847E6e1cf55618FAf443874450f734885e0'; // for sendTransaction
             this.web3[network].eth.Contract = class CustomContract extends this.web3[network].eth.Contract {
-                constructor(
-                    jsonInterface: AbiItem[],
-                    address?: string,
-                    options?: ContractOptions
-                ) {
+                constructor(jsonInterface: AbiItem[], address?: string, options?: ContractOptions) {
                     super(jsonInterface, address, options);
                     // @ts-ignore
                     this.options.from = '0x216FF847E6e1cf55618FAf443874450f734885e0';

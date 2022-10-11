@@ -37,10 +37,10 @@ async function main() {
     const guardians = await getGuardians('https://status.orbs.network/json') // TODO localhost
     const engine = new Engine(
         {
-            'polygon': {"id": 137, "rpcUrl": "https://polygon-mainnet.g.alchemy.com/v2/ycYturL7FncO-c6xtUDKApfIFnorZToh"},
-            'ethereum': {"id": 1, "rpcUrl": "https://eth-mainnet.g.alchemy.com/v2/Q9NrK9t6txvHcqNCochAI0MNWQ3UTHFu"},
+            'polygon': {"id": 137, "rpcUrl": "wss://polygon-mainnet.g.alchemy.com/v2/ycYturL7FncO-c6xtUDKApfIFnorZToh"},
+            'ethereum': {"id": 1, "rpcUrl": "wss://eth-mainnet.g.alchemy.com/v2/Q9NrK9t6txvHcqNCochAI0MNWQ3UTHFu"},
             'bsc': {"id": 56, "rpcUrl": "wss://bsc-mainnet.nodereal.io/ws/v1/64a9df0874fb4a93b9d0a3849de012d3"},
-            "goerli": {"id": 5, rpcUrl: "https://eth-goerli.g.alchemy.com/v2/_zIVzADTWU5y41UKIybGjUSbd3RAW8TL"}
+            "goerli": {"id": 5, rpcUrl: "wss://eth-goerli.g.alchemy.com/v2/_zIVzADTWU5y41UKIybGjUSbd3RAW8TL"}
         },
         guardians)
 
