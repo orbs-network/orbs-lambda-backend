@@ -14,14 +14,25 @@ function getAllFiles(dirPath: string, arrayOfFiles: string[] = []) {
             arrayOfFiles.push(join(__dirname, dirPath, "/", file))
         }
     })
-    return arrayOfFiles
+    return arrayOfFiles;
 }
 
-async function getGuardians(statusUrl: string) {
-    const response = await fetch(statusUrl);
-    const res = await response.json();
-    const guardians: string[] = [];
-    for (const address in res.CommitteeNodes) guardians.push(`0x${address}`);
+async function getGuardians(mgmtServiceUrl: string, statusUrl: string) {
+    let response = await fetch(mgmtServiceUrl);
+    const mgmt = await response.json();
+    response = await fetch(statusUrl);
+    const status = await response.json();
+
+    const guardians = {};
+    for (const node of mgmt.Payload.CurrentCommittee) {
+        const gAddress = `0x${node.EthAddress}`;
+        const gStatus = status.CommitteeNodes[node.EthAddress];
+        guardians[gAddress] = {
+                weight: node.Weight,
+                nodeAddress: `0x${gStatus.OrbsAddress}`,
+                ip: gStatus.Ip
+            };
+    }
     return guardians;
 }
 
@@ -34,7 +45,7 @@ async function main() {
         }
     });
 
-    const guardians = await getGuardians('https://status.orbs.network/json') // TODO localhost
+    const guardians = await getGuardians('http://54.95.108.148/services/management-service/status', 'https://status.orbs.network/json') // TODO localhost
     const engine = new Engine(
         {
             'polygon': {"id": 137, "rpcUrl": "wss://polygon-mainnet.g.alchemy.com/v2/ycYturL7FncO-c6xtUDKApfIFnorZToh"},

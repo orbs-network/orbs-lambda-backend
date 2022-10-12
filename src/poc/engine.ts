@@ -9,17 +9,15 @@ import {SignerProvider} from "./customProvider"
 
 export class Engine {
     private web3: {} = {};
-    private storage: {};
-    private guardians: any;
+    private readonly guardians: any;
     public running: number;
     public isLeader: boolean
     public lambdas: {};
     private currentProject: string;
     private signer: Signer;
 
-    constructor(networksMapping: {}, guardians: string[]) {
+    constructor(networksMapping: {}, guardians: {}) {
         this.signer = new Signer('http://localhost:7777');
-        this.storage = {};
         this.guardians = guardians;
         this.running = 0;
         this.isLeader = this.checkIfLeader();
@@ -54,13 +52,14 @@ export class Engine {
     run(tasksMap) {
         for (const project in tasksMap) {
             this.currentProject = project;
-            this.lambdas[project] = []
-            require(tasksMap[project])(this);
+            this.lambdas[project] = [];
+            const module = require(tasksMap[project]);
+            module.register(this);
         }
         console.log(this.lambdas)
     }
 
-    checkIfLeader() {
+    checkIfLeader() {  // TODO
         return true
     }
 
@@ -71,9 +70,14 @@ export class Engine {
         const _this = this;
         const crontab = convertIntervalToCron(interval);
         if (crontab) {
+            const args = {
+                web3: network ? _this.web3[network] : undefined,
+                guardians: this.guardians,
+                config
+            }
             scheduleJob(crontab, async function () {
                 _this.running++;
-                await fn(_this.web3[network], _this.storage, _this.guardians, config)
+                await fn(args)
                 _this.running--;
             });
         }
@@ -86,9 +90,14 @@ export class Engine {
         const _this = this;
         const crontab = validateCron(cron);
         if (crontab) {
+            const args = {
+                web3: network ? _this.web3[network] : undefined,
+                guardians: this.guardians,
+                config
+            }
             scheduleJob(crontab, async function () {
                 _this.running++;
-                await fn(_this.web3[network], _this.storage, _this.guardians, config)
+                await fn(args)
                 _this.running--;
             });
         }
@@ -97,24 +106,33 @@ export class Engine {
     async onBlocks(fn, {network, config}) { // TODO
         const lambda = new Lambda(this.currentProject, fn.name, "onBlocks")
         this.lambdas[this.currentProject].push(lambda)
-
+        const args = {
+            web3: network ? this.web3[network] : undefined,
+            guardians: this.guardians,
+            config
+        }
         this.running++;
-        await fn(this.web3[network], this.storage, this.guardians, config)
+        await fn(args)
         this.running--;
     }
 
-    onEvent(fn, {contractAddress, abi, eventNames, network, config}) {
+    onEvent(fn, {contractAddress, abi, eventNames, network, filter, config}) {
         const lambda = new Lambda(this.currentProject, fn.name, "onEvent")
         this.lambdas[this.currentProject].push(lambda)
 
         const _this = this;
         const web3 = this.web3[network];
+        const args = {
+            web3: network ? web3 : undefined,
+            guardians: this.guardians,
+            config
+        }
         const contract = new web3.eth.Contract(abi, web3.utils.toChecksumAddress(contractAddress));
         for (const event of eventNames) {
-            contract.events[event]({fromBlock: 'latest'})
+            contract.events[event]({fromBlock: 'latest', filter})
                 .on('data', async event => {
                     _this.running++;
-                    await fn(web3, lambda.storage, _this.guardians, config, event)
+                    await fn(Object.assign(args, {event}))
                     _this.running--;
                 })
                 .on('changed', changed => console.log(changed))

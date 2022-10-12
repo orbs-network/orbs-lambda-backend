@@ -17,12 +17,12 @@ export class SignerProvider extends Web3.providers.WebsocketProvider {
         this.signTransaction(rawTxPayload, (keyError, signedHexPayload) => { // eslint-disable-line
             if (!keyError) {
                 // create new output payload
-                const outputPayload = Object.assign({}, {
+                const outputPayload = {
                     id: payload.id,
                     jsonrpc: payload.jsonrpc,
                     method: 'eth_sendRawTransaction',
                     params: [signedHexPayload],
-                });
+                };
 
                 // send payload
                 super.send(outputPayload, callback);
