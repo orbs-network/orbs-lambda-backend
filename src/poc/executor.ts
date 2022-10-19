@@ -45,6 +45,7 @@ async function main() {
         }
     });
 
+    const selfAddress = "0x216FF847E6e1cf55618FAf443874450f734885e0"; // TODO
     const guardians = await getGuardians('http://54.95.108.148/services/management-service/status', 'https://status.orbs.network/json') // TODO localhost
     const engine = new Engine(
         {
@@ -53,7 +54,8 @@ async function main() {
             'bsc': {"id": 56, "rpcUrl": "wss://bsc-mainnet.nodereal.io/ws/v1/64a9df0874fb4a93b9d0a3849de012d3"},
             "goerli": {"id": 5, rpcUrl: "wss://eth-goerli.g.alchemy.com/v2/_zIVzADTWU5y41UKIybGjUSbd3RAW8TL"}
         },
-        guardians)
+        guardians,
+        selfAddress)
 
     // process.on('SIGINT', async function () {
     process.on('SIGTERM', async function () {
