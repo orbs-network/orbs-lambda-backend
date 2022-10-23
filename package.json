@@ -17,6 +17,7 @@
     "bignumber.js": "^9.0.1",
     "child_process": "^1.0.2",
     "cron-parser": "^4.4.0",
+    "dotenv": "^16.0.3",
     "ethjs-provider-signer": "^0.1.4",
     "fs-extra": "^10.1.0",
     "node-fetch": "^2.6.5",

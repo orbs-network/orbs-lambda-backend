@@ -1,8 +1,9 @@
 import {readdirSync, statSync} from "fs";
-import {join} from "path";
 import fetch from "node-fetch";
-import path = require("path");
+import * as path from 'path';
 import {Engine} from "./engine";
+import dotenv from 'dotenv';
+import * as _process from "process";
 
 function getAllFiles(dirPath: string, arrayOfFiles: string[] = []) {
     const files = readdirSync(dirPath)
@@ -11,7 +12,7 @@ function getAllFiles(dirPath: string, arrayOfFiles: string[] = []) {
         if (statSync(dirPath + "/" + file).isDirectory()) {
             arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles)
         } else {
-            arrayOfFiles.push(join(__dirname, dirPath, "/", file))
+            arrayOfFiles.push(path.join(__dirname, dirPath, "/", file))
         }
     })
     return arrayOfFiles;
@@ -37,8 +38,9 @@ async function getGuardians(mgmtServiceUrl: string, statusUrl: string) {
 }
 
 async function main() {
+    dotenv.config({path: path.resolve(__dirname, '../.env')});
     const tasksList = {};
-    getAllFiles("../../src").forEach(fileName => {
+    getAllFiles("../src").forEach(fileName => {
         if (fileName.match("/projects\/.*index.js")) {
             const projectName = path.basename(path.dirname(fileName))
             tasksList[projectName] = fileName;
@@ -49,10 +51,10 @@ async function main() {
     const guardians = await getGuardians('http://54.95.108.148/services/management-service/status', 'https://status.orbs.network/json') // TODO localhost
     const engine = new Engine(
         {
-            'polygon': {"id": 137, "rpcUrl": "wss://polygon-mainnet.g.alchemy.com/v2/ycYturL7FncO-c6xtUDKApfIFnorZToh"},
-            'ethereum': {"id": 1, "rpcUrl": "wss://eth-mainnet.g.alchemy.com/v2/Q9NrK9t6txvHcqNCochAI0MNWQ3UTHFu"},
-            'bsc': {"id": 56, "rpcUrl": "wss://bsc-mainnet.nodereal.io/ws/v1/64a9df0874fb4a93b9d0a3849de012d3"},
-            "goerli": {"id": 5, rpcUrl: "wss://eth-goerli.g.alchemy.com/v2/_zIVzADTWU5y41UKIybGjUSbd3RAW8TL"}
+            'polygon': {"id": 137, "rpcUrl": _process.env.POLYGON_PROVIDER},
+            'ethereum': {"id": 1, "rpcUrl": _process.env.ETHEREUM_PROVIDER},
+            'bsc': {"id": 56, "rpcUrl": _process.env.BSC_PROVIDER},
+            "goerli": {"id": 5, rpcUrl: _process.env.GOERLI_PROVIDER}
         },
         guardians,
         selfAddress)

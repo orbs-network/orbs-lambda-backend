@@ -37,9 +37,13 @@ export class Engine {
             const provider = new SignerProvider({
                 host: networksMapping[network].rpcUrl,
                 signTransaction: async (txData, cb) => {
-                    txData.gasLimit = txData.gas ?? await this.web3[network].eth.estimateGas(txData)
-                    const result = await _this.signer.sign(txData, networksMapping[network].id);
-                    cb(null, result.rawTransaction);
+                    try {
+                        txData.gasLimit = txData.gas ?? await this.web3[network].eth.estimateGas(txData)
+                        const result = await _this.signer.sign(txData, networksMapping[network].id);
+                        cb(null, result.rawTransaction);
+                    } catch (e) {
+                        console.error(e)
+                    }
                 }
             });
             this.web3[network] = new Web3(provider);
@@ -63,6 +67,7 @@ export class Engine {
     }
 
     isLeaderTime() {
+        // return true;
         return this.getCurrentLeaderIndex() === this.selfIndex;
     }
 
@@ -74,7 +79,7 @@ export class Engine {
         return parseInt(txHash) % Object.keys(this.guardians).length === Object.keys(this.guardians).indexOf(this.selfAddress);
     }
 
-    shouldRun(projectName, interval) {
+    shouldRunInterval(projectName, interval) {
         const epochMinutes = Math.floor(new Date().getTime()/MS_TO_MINUTES);
         const intervalMinutes = intervalToMinutes(interval);
         const offset = hashStringToNumber(projectName) % intervalMinutes;
@@ -103,8 +108,13 @@ export class Engine {
             scheduleJob(crontab, async function () {
                 if (_this.isLeaderTime()) {
                     _this.running++;
-                    await fn(params)
-                    _this.running--;
+                    try {
+                        await fn(params);
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        _this.running--;
+                    }
                 }
             });
         }
@@ -119,8 +129,13 @@ export class Engine {
             config: args.cong
         }
         this.running++;
-        await fn(params)
-        this.running--;
+        try {
+            await fn(params);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            this.running--;
+        }
     }
 
     onEvent(fn, args) {
@@ -140,8 +155,13 @@ export class Engine {
             .on('data', async event => {
                 if (this.isLeaderEvent(event.transactionHash)) {
                     _this.running++;
-                    await fn(Object.assign(params, {event}))
-                    _this.running--;
+                    try {
+                        await fn(Object.assign(params, {event}));
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        this.running--;
+                    }
                 }
             })
             .on('changed', changed => console.log(changed))
@@ -164,7 +184,7 @@ export class Engine {
             if (_this.isLeaderTime()) {
                 for (const projectName in _this.lambdas) {
                     for (const lambda of _this.lambdas[projectName]) {
-                        if (lambda.type === "onInterval" && _this.shouldRun(projectName, lambda.args.interval)) { // TODO: ENUM TYPES?
+                        if (lambda.type === "onInterval" && _this.shouldRunInterval(projectName, lambda.args.interval)) { // TODO: ENUM TYPES?
                             _this.running++;
                             await lambda.fn(lambda.args);
                             _this.running--;
