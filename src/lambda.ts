@@ -4,6 +4,7 @@ export class Lambda {
     public type: string;
     public args: any;
     public fn: any;
+    public isRunning: boolean;
 
     constructor(projectName, taskName, type, fn, args) {
         this.projectName = projectName;
@@ -11,5 +12,6 @@ export class Lambda {
         this.type = type;
         this.fn = fn;
         this.args = args;
+        this.isRunning = false;
     }
 }

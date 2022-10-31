@@ -4,7 +4,9 @@ import * as path from 'path';
 import {Engine} from "./engine";
 import dotenv from 'dotenv';
 import * as _process from "process";
+import {log, error} from "./utils";
 
+// TODO: Executor class?
 function getAllFiles(dirPath: string, arrayOfFiles: string[] = []) {
     const files = readdirSync(dirPath)
     arrayOfFiles = arrayOfFiles || []
@@ -29,10 +31,10 @@ async function getGuardians(mgmtServiceUrl: string, statusUrl: string) {
         const gAddress = `0x${node.EthAddress}`;
         const gStatus = status.CommitteeNodes[node.EthAddress];
         guardians[gAddress] = {
-                weight: node.Weight,
-                nodeAddress: `0x${gStatus.OrbsAddress}`,
-                ip: gStatus.Ip
-            };
+            weight: node.Weight,
+            nodeAddress: `0x${gStatus.OrbsAddress}`,
+            ip: gStatus.Ip
+        };
     }
     return guardians;
 }
@@ -59,18 +61,33 @@ async function main() {
         guardians,
         selfAddress)
 
-    // process.on('SIGINT', async function () {
-    process.on('SIGTERM', async function () {
-        while (engine.running) {
-            console.log("Engine is still running. Waiting...");
-            await new Promise(resolve => setTimeout(resolve, 1000)); // TODO: unsubscribe?
+    process.on('unhandledRejection', (reason, promise) => {
+        error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
+    });
+
+    process.on('uncaughtException', function(err, origin) {
+        error(`Caught exception: ${err}\nException origin: ${origin}`);
+    });
+
+    ['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach(signal => process.on(signal, async () => {
+        log(`Engine received ${signal} signal`)
+        engine.isShuttingDown = true;
+        const t = new Date().getTime();
+        while (engine.runningTasks) {
+            let runningTasks = "";
+            for (const project in engine.lambdas) {
+                for (const lambda of engine.lambdas[project]) {
+                    if (lambda.isRunning) runningTasks += `${project}, ${lambda.taskName}\n`
+                }
+            }
+            log(`Still running ${engine.runningTasks} tasks:\n${runningTasks}Waiting for ${(new Date().getTime()-t)/1000} seconds to finish...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
         }
-        console.log("Shutting down")
-        process.exit(0)
-    })
+        process.exit();
+    }));
 
     engine.run(tasksList);
 }
 
 
-main().then().catch(e => console.log(e))
+main().then().catch(e => error(e))

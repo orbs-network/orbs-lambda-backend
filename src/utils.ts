@@ -34,3 +34,13 @@ export function hashStringToNumber(str) {
     return hash >>> 0;
     // return Math.abs(str.split('').reduce((a,b) => (((a << 5) - a) + b.charCodeAt(0))|0, 0));
 }
+
+export function log(obj) {
+    const str = typeof(obj) === 'object' ? JSON.stringify(obj, undefined, 2) : obj;
+    console.log(`<${process.pid}> ${str}`)
+}
+
+export function error(obj) {
+    const str = typeof(obj) === 'object' ? JSON.stringify(obj, undefined, 2) : obj;
+    console.error(`<${process.pid}> ERROR: ${str}`)
+}
