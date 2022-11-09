@@ -4,16 +4,9 @@ import * as path from 'path';
 import dotenv from 'dotenv';
 import * as process from "process";
 import {log, error} from "./utils";
+import {decimals} from "./constants"
 
 dotenv.config({path: path.resolve(__dirname, '../.env')});
-
-const OWLRACLE_MAPPING = {
-    1: 'eth',
-    137: 'poly',
-    56: 'bsc',
-    250: 'ftm',
-    43114: 'avax'
-}
 
 export class SignerProvider extends Web3.providers.WebsocketProvider {
     private readonly signTransaction: any;
@@ -23,14 +16,19 @@ export class SignerProvider extends Web3.providers.WebsocketProvider {
         this.signTransaction = signTransaction;
     }
 
-    async calcGasPrice(chainId, urgencyInSeconds, maxGasPrice) {
-        const res = await fetch(`https://api.owlracle.info/v3/${OWLRACLE_MAPPING[chainId]}/gas?eip1559=false&accept=10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100&apikey=${process.env.OWLRACLE_APIKEY}`);
-        if (res.status !== 200) throw new Error(`Owlracle request failed with status code ${res.status}`)
-        const data = await res.json();
-        let acceptance = urgencyInSeconds ? 1 - Math.pow(0.01, data.avgTime/urgencyInSeconds) : 0.75 // acceptance within the desired time with 99% probability. (https://www.statology.org/probability-of-at-least-two). default is 0.75
-        const price = data.speeds.find(speed => {if (speed.acceptance >= acceptance) return speed.gasPrice}).gasPrice
-        const maxPrice = maxGasPrice ? Math.min(price, maxGasPrice) : price;
-        return Web3.utils.toHex(Web3.utils.toWei(maxPrice.toString(), 'gwei'));
+    async calcGasPrice(chainId, baseFee, urgencyInSeconds, maxGasPrice) {
+        if (maxGasPrice && maxGasPrice > baseFee) {
+            const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?eip1559=false&accept=10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100&apikey=${process.env.OWLRACLE_APIKEY}`);
+            if (res.status === 200) {
+                const data = await res.json();
+                let acceptance = urgencyInSeconds ? 1 - Math.pow(0.01, data.avgTime / urgencyInSeconds) : 0.75 // acceptance within the desired time with 99% probability. (https://www.statology.org/probability-of-at-least-two). default is 0.75
+                const price = data.speeds.find(speed => {
+                    if (speed.acceptance >= acceptance) return speed.gasPrice
+                }).gasPrice
+                const maxPrice = maxGasPrice ? Math.min(price, maxGasPrice) : price;
+                return Web3.utils.toHex(Web3.utils.toWei(maxPrice.toString(), 'gwei'));
+            } else error(`Owlracle request failed with status code ${res.status}`);
+        } else log(`maxGasPrice ${maxGasPrice} < base fee ${baseFee}`)
     }
 
     signAndSend(payload, nonce, gasPrice, callback) {
@@ -49,8 +47,6 @@ export class SignerProvider extends Web3.providers.WebsocketProvider {
                     method: 'eth_sendRawTransaction',
                     params: [signedHexPayload],
                 };
-
-                // send payload
                 super.send(outputPayload, callback);
             } else {
                 callback(new Error(`[SignerProvider] while signing your transaction payload: ${JSON.stringify(keyError)}`), undefined);
@@ -72,37 +68,38 @@ export class SignerProvider extends Web3.providers.WebsocketProvider {
                 if (nonceError) {
                     return callback(new Error(`[SignerProvider] while getting nonce: ${nonceError}`), undefined);
                 }
-                // get the gas price, if any
-                if (payload.params[0].gasPrice) self.signAndSend(payload, nonce.result, payload.params[0].gasPrice, callback);
-                else {
+                self.send({
+                    jsonrpc: '2.0',
+                    method: 'eth_chainId',
+                    id: (new Date()).getTime()
+                }, (chainIdError, chainId) => {
+                    if (chainIdError) {
+                        return callback(new Error(`[SignerProvider] while getting chainId: ${chainIdError}`), undefined);
+                    }
                     self.send({
                         jsonrpc: '2.0',
-                        method: 'eth_chainId',
+                        method: 'eth_feeHistory',
+                        params: [1, "pending", [0.75]],
                         id: (new Date()).getTime()
-                    }, (chainIdError, chainId) => {
-                        if (chainIdError) {
-                            return callback(new Error(`[SignerProvider] while getting chainId: ${chainIdError}`), undefined);
+                    }, (feeHistoryError, feeHistory) => {
+                        if (feeHistoryError) {
+                            return callback(new Error(`[SignerProvider] while getting feeHistory: ${feeHistoryError}`), undefined);
                         }
-                        this.calcGasPrice(parseInt(chainId.result), payload.params[0].urgencyInSeconds, payload.params[0].maxGasPrice).then(gasPrice => {
-                            log(`Sending tx with calculated gasPrice: ${parseInt(gasPrice)/1e9} gwei`);
+                        const baseFee = feeHistory.result.baseFeePerGas.pop();
+                        const baseFeeGwei = Number(baseFee/decimals);
+                        this.calcGasPrice(parseInt(chainId.result), baseFeeGwei, payload.params[0].urgencyInSeconds, payload.params[0].maxGasPrice).then(gasPrice => {
+                            if (gasPrice) {
+                                log(`Sending tx with calculated gasPrice: ${parseInt(gasPrice) / decimals} gwei`);
+                            }
+                            else { // api error or low maxGasPrice
+                                gasPrice = baseFee;
+                                log(`Sending tx with base fee: ${parseInt(baseFee) / decimals} gwei`);
+                            }
                             self.signAndSend(payload, nonce.result, gasPrice, callback);
                         }).catch(e => {
-                            error(e);
-                            // heuristic failed - get the recommended gas price from the chain
-                            self.send({
-                                jsonrpc: '2.0',
-                                method: 'eth_gasPrice',
-                                id: (new Date()).getTime()
-                            }, (gasPriceError, gasPrice) => { // eslint-disable-line
-                                if (gasPriceError) {
-                                    return callback(new Error(`[SignerProvider] while getting gasPrice: ${gasPriceError}`), undefined);
-                                }
-                                log(`Sending tx with on-chain gasPrice ${parseInt(gasPrice.result)/1e9} gwei`);
-                                self.signAndSend(payload, nonce.result, gasPrice.result, callback)
-                            });
-                        });
+                            console.error(e)});
                     });
-                }
+                });
             });
         } else {
             return super.send(payload, callback);

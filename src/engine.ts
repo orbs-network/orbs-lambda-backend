@@ -48,7 +48,8 @@ export class Engine {
                         const result = await _this.signer.sign(txData, networksMapping[network].id);
                         cb(null, result.rawTransaction);
                     } catch (e) {
-                        error(e)
+                        // @ts-ignore
+                        error(e.message)
                     }
                 }
             });
@@ -58,7 +59,7 @@ export class Engine {
                 constructor(jsonInterface: AbiItem[], address?: string, options?: ContractOptions) {
                     super(jsonInterface, address, options);
                     // @ts-ignore
-                    this.options.from = this.selfAddress;
+                    this.options.from = _this.selfAddress;
                 }
             }
         }
