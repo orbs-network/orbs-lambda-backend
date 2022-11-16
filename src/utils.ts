@@ -17,15 +17,15 @@ export function intervalToMinutes(pattern: string) : number {
     throw new Error("Invalid pattern")
 }
 
-export function validateCron(pattern: string) {
+export function validateCron(pattern: string) : string {
     const size = pattern.split(' ').length;
-    if (size < 5 || size > 6) throw "Invalid cron expression";
+    if (size < 5 || size > 6) throw new Error("Invalid cron expression");
     const expression = size === 6 ? pattern.slice(0, pattern.lastIndexOf(' ')) : pattern;
     if (parseExpression(expression)) return expression;
     return '';
 }
 
-export function hashStringToNumber(str) {
+export function hashStringToNumber(str) : number {
     let hash = 5381;
     let i = str.length;
     while(i) {

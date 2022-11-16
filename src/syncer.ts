@@ -1,26 +1,24 @@
-import {resolve} from "path";
+import path, {resolve} from "path";
 import {execSync, fork} from "child_process";
-import {PROCESS_TIMEOUT, GIT_TAG} from "./constants";
-import {log, error} from "./utils";
+import {PROCESS_TIMEOUT, REPO_URL} from "./constants";
+import {error, log} from "./utils";
 import fetch from "node-fetch";
 import * as _ from 'lodash';
+import * as process from "process";
+import dotenv from 'dotenv';
 
 class Syncer {
     private children = {}
     private readonly program: any;
-    private readonly mgmtServiceUrl: any;
-    private readonly statusUrl: any;
 
-    constructor(executorPath, mgmtServiceUrl, statusUrl) {
+    constructor(executorPath) {
         this.program = resolve(executorPath);
-        this.mgmtServiceUrl = mgmtServiceUrl
-        this.statusUrl = statusUrl
     }
 
     async getCommittee() {
-        let response = await fetch(this.mgmtServiceUrl);
+        let response = await fetch(process.env.MGMT_SERVICE_URL!);
         const mgmt = await response.json();
-        response = await fetch(this.statusUrl);
+        response = await fetch(process.env.STATUS_URL!);
         const status = await response.json();
 
         const guardians = {};
@@ -36,7 +34,7 @@ class Syncer {
         return guardians;
     }
 
-    async restart(committee) {
+    restart(committee) {
         log("Starting executor instance...");
         const child = fork(this.program);
         if (child.pid) {
@@ -61,7 +59,7 @@ class Syncer {
 
     async run() {
         execSync('rm -rf orbs-lambda'); // remove old directory if exists
-        execSync(`git clone -b ${GIT_TAG} https://github.com/orbs-network/orbs-lambda`);
+        execSync(`git clone -b ${process.env.GIT_TAG} ${REPO_URL}`);
         let localRev = execSync('git rev-parse HEAD', {"cwd": "./orbs-lambda"}).toString().trim();
 
         let oldCommittee = {}
@@ -71,35 +69,26 @@ class Syncer {
             // Check for changes in committee
             let newCommittee = await this.getCommittee();
             if (!_.isEqual(new Set(Object.keys(oldCommittee)), new Set(Object.keys(newCommittee)))) {
-                log("Committee has changed, restarting...")
-                await this.restart(newCommittee);
+                log("Committee has changed, (re)starting...")
+                this.restart(newCommittee);
             }
             oldCommittee = newCommittee;
-            await new Promise(resolve => setTimeout(resolve, 60000));
 
             // Check for changes in Git
-            execSync(`git clone -b ${GIT_TAG} https://github.com/orbs-network/orbs-lambda tmp`);
+            execSync(`git clone -b ${process.env.GIT_TAG} ${REPO_URL} tmp`);
             const remoteRev = execSync('git rev-parse HEAD', {"cwd": "./tmp"}).toString().trim();
             if (localRev !== remoteRev) {
                 console.log(`New commit found: ${remoteRev}`);
                 execSync('rm -rf orbs-lambda && mv tmp orbs-lambda');
-                await this.restart(newCommittee);
+                this.restart(newCommittee);
                 localRev = remoteRev;
             } else execSync('rm -rf tmp');
+
+            await new Promise(resolve => setTimeout(resolve, 60000));
         }
     }
 }
 
-// const program = resolve('executor.js');
-// const child = fork(program);
-// child.on('exit', function (code) {
-//     log(`Engine ${child.pid} shut down completed with exit code ${code}`);
-// })
-//
-// setTimeout(() => {
-//     fork(program);
-//     child.kill();
-// }, 5000);
-
-const syncer = new Syncer('executor.js','http://54.95.108.148/services/management-service/status', 'https://status.orbs.network/json')
+dotenv.config({path: path.resolve(__dirname, `../${process.env.ENV_FILE ?? '.env'}`)});
+const syncer = new Syncer('executor.js')
 syncer.run().then()

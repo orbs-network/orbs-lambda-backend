@@ -4,9 +4,9 @@ import * as path from 'path';
 import dotenv from 'dotenv';
 import * as process from "process";
 import {log, error} from "./utils";
-import {decimals} from "./constants"
+import {DECIMALS} from "./constants"
 
-dotenv.config({path: path.resolve(__dirname, '../.env')});
+dotenv.config({path: path.resolve(__dirname, `../${process.env.ENV_FILE ?? '.env'}`)});
 
 export class SignerProvider extends Web3.providers.WebsocketProvider {
     private readonly signTransaction: any;
@@ -86,14 +86,14 @@ export class SignerProvider extends Web3.providers.WebsocketProvider {
                             return callback(new Error(`[SignerProvider] while getting feeHistory: ${feeHistoryError}`), undefined);
                         }
                         const baseFee = feeHistory.result.baseFeePerGas.pop();
-                        const baseFeeGwei = Number(baseFee/decimals);
+                        const baseFeeGwei = Number(baseFee/DECIMALS);
                         this.calcGasPrice(parseInt(chainId.result), baseFeeGwei, payload.params[0].urgencyInSeconds, payload.params[0].maxGasPrice).then(gasPrice => {
                             if (gasPrice) {
-                                log(`Sending tx with calculated gasPrice: ${parseInt(gasPrice) / decimals} gwei`);
+                                log(`Sending tx with calculated gasPrice: ${parseInt(gasPrice) / DECIMALS} gwei`);
                             }
                             else { // api error or low maxGasPrice
                                 gasPrice = baseFee;
-                                log(`Sending tx with base fee: ${parseInt(baseFee) / decimals} gwei`);
+                                log(`Sending tx with base fee: ${parseInt(baseFee) / DECIMALS} gwei`);
                             }
                             self.signAndSend(payload, nonce.result, gasPrice, callback);
                         }).catch(e => {

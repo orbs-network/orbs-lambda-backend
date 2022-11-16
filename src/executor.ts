@@ -3,17 +3,19 @@ import * as path from 'path';
 import {Engine} from "./engine";
 import dotenv from 'dotenv';
 import * as _process from "process";
-import {log, error} from "./utils";
+import {error, log} from "./utils";
 
 // TODO: Executor class?
-function getAllFiles(dirPath: string, arrayOfFiles: string[] = []) {
+
+function getMatchingFiles(dirPath: string, arrayOfFiles: string[] = []) {
     const files = readdirSync(dirPath)
     arrayOfFiles = arrayOfFiles || []
     files.forEach(function (file) {
         if (statSync(dirPath + "/" + file).isDirectory()) {
-            arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles)
+            arrayOfFiles = getMatchingFiles(dirPath + "/" + file, arrayOfFiles)
         } else {
-            arrayOfFiles.push(path.join(__dirname, dirPath, "/", file))
+            const fileName = path.join(__dirname, dirPath, "/", file);
+            if (fileName.match(_process.env.PROJECTS_PATTERN!)) arrayOfFiles.push(fileName)
         }
     })
     return arrayOfFiles;
@@ -21,16 +23,12 @@ function getAllFiles(dirPath: string, arrayOfFiles: string[] = []) {
 
 async function main() {
     process.on('message', async (guardians: {}) => {
-        dotenv.config({path: path.resolve(__dirname, '../.env')});
-        const tasksList = {};
-        getAllFiles("../src").forEach(fileName => {
-            if (fileName.match("/projects\/.*index.js")) {
-                const projectName = path.basename(path.dirname(fileName))
-                tasksList[projectName] = fileName;
-            }
-        });
+        dotenv.config({path: path.resolve(__dirname, `../${_process.env.ENV_FILE ?? '.env'}`)});
+        const tasksList = Object.fromEntries(
+            getMatchingFiles(_process.env.PROJECTS_DIR!).map(f => [path.basename(path.dirname(f)), f]) // projectName: ProjectFile
+        )
 
-        const selfAddress = "0x216FF847E6e1cf55618FAf443874450f734885e0"; // TODO
+        const selfAddress = _process.env.SELF_ADDRESS; // TODO
         const engine = new Engine(
             {
                 'polygon': {"id": 137, "rpcUrl": _process.env.POLYGON_PROVIDER},
@@ -39,7 +37,8 @@ async function main() {
                 "goerli": {"id": 5, rpcUrl: _process.env.GOERLI_PROVIDER}
             },
             guardians,
-            selfAddress)
+            selfAddress,
+            _process.env.SIGNER_URL)
 
         process.on('unhandledRejection', (reason, promise) => {
             error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
