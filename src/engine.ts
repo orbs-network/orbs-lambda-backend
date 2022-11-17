@@ -20,11 +20,12 @@ export class Engine {
     public isShuttingDown: boolean;
     private networksMapping: {};
 
-    constructor(networksMapping: {}, guardians: {}, selfAddress, signerUrl) {
+    constructor(networksMapping: {}, guardians: {[key: string] : {weight: number, nodeAddress: string, ip: string, currentNode: boolean}}, signerUrl) {
         this.signer = new Signer(signerUrl);
         this.guardians = guardians;
         this.runningTasks = 0;
-        this.selfAddress = selfAddress;
+        // this.selfAddress = `0x${Object.values(guardians).find(g => g.currentNode === true)!.nodeAddress}`;
+        this.selfAddress = '0x216FF847E6e1cf55618FAf443874450f734885e0';
         this.selfIndex = this.getGuardianIndex();
         this.lambdas = {};
         this.currentProject = "";

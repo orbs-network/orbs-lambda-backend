@@ -9,26 +9,26 @@ import dotenv from 'dotenv';
 
 class Syncer {
     private children = {}
-    private readonly program: any;
+    private readonly executorPath: any;
 
     constructor(executorPath) {
-        this.program = resolve(executorPath);
+        this.executorPath = resolve(executorPath);
     }
 
     async getCommittee() {
         let response = await fetch(process.env.MGMT_SERVICE_URL!);
         const mgmt = await response.json();
-        response = await fetch(process.env.STATUS_URL!);
-        const status = await response.json();
+        const selfAddress = mgmt.Payload.Config['node-address'].toLowerCase()
 
         const guardians = {};
         for (const node of mgmt.Payload.CurrentCommittee) {
             const gAddress = `0x${node.EthAddress}`;
-            const gStatus = status.CommitteeNodes[node.EthAddress];
+            const g = mgmt.Payload.CurrentTopology.find(x => x.EthAddress === node.EthAddress)
             guardians[gAddress] = {
                 weight: node.Weight,
-                nodeAddress: `0x${gStatus.OrbsAddress}`,
-                ip: gStatus.Ip
+                nodeAddress: `0x${g.OrbsAddress}`,
+                ip: g.Ip,
+                currentNode: g.OrbsAddress === selfAddress
             };
         }
         return guardians;
@@ -36,7 +36,7 @@ class Syncer {
 
     restart(committee) {
         log("Starting executor instance...");
-        const child = fork(this.program);
+        const child = fork(this.executorPath);
         if (child.pid) {
             child.send(committee);
             this.children[child.pid] = Object.assign({'timestamp': new Date().getTime()}, child); // add spawn timestamp to child object
@@ -48,6 +48,7 @@ class Syncer {
             })
         } else error("Failed to fork a new subprocess"); // TODO
 
+        // check for zombie processes
         const time = new Date().getTime();
         for (const id in this.children) {
             if (time - this.children[id].timestamp >= PROCESS_TIMEOUT && child.pid) {

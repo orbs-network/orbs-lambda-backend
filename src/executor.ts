@@ -28,7 +28,6 @@ async function main() {
             getMatchingFiles(_process.env.PROJECTS_DIR!).map(f => [path.basename(path.dirname(f)), f]) // projectName: ProjectFile
         )
 
-        const selfAddress = _process.env.SELF_ADDRESS; // TODO
         const engine = new Engine(
             {
                 'polygon': {"id": 137, "rpcUrl": _process.env.POLYGON_PROVIDER},
@@ -37,7 +36,6 @@ async function main() {
                 "goerli": {"id": 5, rpcUrl: _process.env.GOERLI_PROVIDER}
             },
             guardians,
-            selfAddress,
             _process.env.SIGNER_URL)
 
         process.on('unhandledRejection', (reason, promise) => {

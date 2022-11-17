@@ -8,9 +8,8 @@ import {intervalToMinutes, validateCron} from "../../dist/utils";
 
 describe("Engine", () => {
     let instance: Engine;
-    const selfAddress = "0x216FF847E6e1cf55618FAf443874450f734885e0";
     beforeEach(() => {
-        instance = new Engine({}, guardians, selfAddress, '')
+        instance = new Engine({}, guardians, '')
     })
 
     describe("Leader election", () => {
