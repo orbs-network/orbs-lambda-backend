@@ -24,7 +24,7 @@ export class Engine {
         this.signer = new Signer(signerUrl);
         this.guardians = guardians;
         this.runningTasks = 0;
-        // this.selfAddress = `0x${Object.values(guardians).find(g => g.currentNode === true)!.nodeAddress}`;
+        // this.selfAddress = `0x${Object.values(guardians).find(g => g.currentNode === true)!.nodeAddress}`; // TODO
         this.selfAddress = '0x216FF847E6e1cf55618FAf443874450f734885e0';
         this.selfIndex = this.getGuardianIndex();
         this.lambdas = {};
@@ -87,7 +87,46 @@ export class Engine {
         return !((epochMinutes - offset) % intervalMinutes);
     }
 
-    // ---- handlers ---- //
+    async _runTask(lambda, extraParams= {}) {
+        const web3 = lambda.args.network ? this.initWeb3([lambda.args.network]) : undefined;
+        const params = Object.assign({web3, guardians: this.guardians}, extraParams);
+        this.runningTasks++;
+        lambda.isRunning = true;
+        try {
+            await lambda.fn(params);
+        } catch (e) {
+            error(`Task ${lambda.fn.name} failed with error: ${e}`);
+        } finally {
+            lambda.isRunning = false;
+            this.runningTasks--;
+            // @ts-ignore
+            await web3.currentProvider.disconnect();
+        }
+    }
+
+    async _onInterval() {
+        if (!this.isShuttingDown && this.isLeaderTime()) {
+            for (const projectName in this.lambdas) {
+                for (const lambda of this.lambdas[projectName]) {
+                    if (lambda.type === "onInterval" && this.shouldRunInterval(projectName, lambda.args.interval)) { // TODO: ENUM TYPES?
+                        await this._runTask(lambda)
+                    }
+                }
+            }
+        }
+    }
+
+    async _onCron(lambda) {
+        if (!this.isShuttingDown && this.isLeaderTime()) {
+            await this._runTask(lambda)
+        }
+    }
+
+    async _onEvent(event, lambda) {
+        if (!this.isShuttingDown && this.isLeaderHash(event.transactionHash)) {
+            await this._runTask(lambda, {event})
+        }
+    }
 
     onInterval(fn, args) {
         const lambda = new Lambda(this.currentProject, fn.name, "onInterval", fn, args);
@@ -102,25 +141,7 @@ export class Engine {
         const crontab = validateCron(args.cron);
         if (crontab) {
             scheduleJob(crontab, async function () {
-                const web3 = args.network ? _this.initWeb3([args.network]) : undefined;
-                const params = {
-                    web3: web3,
-                    guardians: _this.guardians,
-                }
-                if (!_this.isShuttingDown && _this.isLeaderTime()) {
-                    _this.runningTasks++;
-                    lambda.isRunning = true;
-                    try {
-                        await fn(params);
-                    } catch (e) {
-                        error(`Task ${fn.name} failed with error: ${e}`);
-                    } finally {
-                        lambda.isRunning = false;
-                        _this.runningTasks--;
-                        // @ts-ignore
-                        if (web3) web3.currentProvider.disconnect();
-                    }
-                }
+                await _this._onCron(lambda)
             });
         }
     }
@@ -164,32 +185,14 @@ export class Engine {
         const _this = this;
         contract.events[eventName]({fromBlock: 'latest', filter})
             .on('data', async event => {
-                const web3 = this.initWeb3(network);
-                const params = {
-                    web3,
-                    guardians: this.guardians,
-                }
-                if (!_this.isShuttingDown && this.isLeaderHash(event.transactionHash)) {
-                    _this.runningTasks++;
-                    lambda.isRunning = true;
-                    try {
-                        await fn(Object.assign(params, {event}));
-                    } catch (e) {
-                        error(`Task ${fn.name} failed with error: ${e}`);
-                    } finally {
-                        lambda.isRunning = false;
-                        this.runningTasks--;
-                        // @ts-ignore
-                        await web3.currentProvider.disconnect();
-                    }
-                }
+                await _this._onEvent(event, lambda)
             })
             .on('changed', changed => log(changed))
             .on('error', err => log(err))
             .on('connected', str => log(`Listening to event ${str}`))
     }
 
-    run(tasksMap) {
+    loadModules(tasksMap) {
         for (const project in tasksMap) {
             this.currentProject = project;
             this.lambdas[project] = [];
@@ -197,35 +200,15 @@ export class Engine {
             module.register(this);
         }
         log(this.lambdas)
+    }
+
+    run(tasksMap) {
+        this.loadModules(tasksMap)
 
         const _this = this;
         // handle onInterval tasks
         scheduleJob("* * * * *", async function() {
-            if (!_this.isShuttingDown && _this.isLeaderTime()) {
-                for (const projectName in _this.lambdas) {
-                    for (const lambda of _this.lambdas[projectName]) {
-                        if (lambda.type === "onInterval" && _this.shouldRunInterval(projectName, lambda.args.interval)) { // TODO: ENUM TYPES?
-                            const web3 = lambda.args.network ? _this.initWeb3([lambda.args.network]) : undefined;
-                            const params = {
-                                web3,
-                                guardians: _this.guardians,
-                            }
-                            _this.runningTasks++;
-                            lambda.isRunning = true;
-                            try {
-                                await lambda.fn(params);
-                            } catch (e) {
-                                error(`Task ${lambda.fn.name} failed with error: ${e}`);
-                            } finally {
-                                lambda.isRunning = false;
-                                _this.runningTasks--;
-                                // @ts-ignore
-                                await web3.currentProvider.disconnect();
-                            }
-                        }
-                    }
-                }
-            }
+            await _this._onInterval()
         })
 
         // handle onBlocks tasks TODO

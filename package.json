@@ -3,15 +3,11 @@
   "version": "1.0.0",
   "description": "",
   "devDependencies": {
-    "@types/fs-extra": "^9.0.13",
-    "@types/mocha": "^10.0.0",
-    "chai": "^4.3.7",
+    "@defi.org/web3-candies": "^4.5.1",
     "common-js-file-extensions": "^1.0.4",
     "dependency-diff": "^1.0.4",
     "eslint": "^7.6.0",
     "eslint-config-google": "^0.14.0",
-    "fs-extra": "^10.1.0",
-    "mocha": "^10.1.0",
     "mockdate": "^3.0.5"
   },
   "dependencies": {
@@ -39,7 +35,7 @@
     "build": "tsc --skipLibCheck",
     "docker": "./docker-build.sh",
     "start": "node dist/index.js",
-    "test": "mocha test/unit/**/*.spec.ts"
+    "test": "hardhat test"
   },
   "mocha": {
     "require": [

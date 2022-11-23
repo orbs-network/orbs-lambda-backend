@@ -73,4 +73,4 @@ custom_typings/
 #DS_Store
 .DS_Store
 
-test/e2e/signer/keys.json
+signer/keys.json

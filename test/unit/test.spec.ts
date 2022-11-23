@@ -1,7 +1,7 @@
 import {expect} from "chai";
 import {beforeEach} from "mocha";
 import {Engine} from "../../src/engine";
-import {guardians} from "./fixtures";
+import {guardians} from "../fixtures";
 import {set} from 'mockdate'
 import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN} from "../../src/constants";
 import {intervalToMinutes, validateCron} from "../../dist/utils";
@@ -15,7 +15,7 @@ describe("Engine", () => {
     describe("Leader election", () => {
         describe("Time based leader", () => {
             it("Should return true", () => {
-                set(TASK_TIME_DIVISION_MIN*MS_TO_MINUTES*Object.keys(guardians).length)
+                set(TASK_TIME_DIVISION_MIN*MS_TO_MINUTES*Object.keys(guardians).length);
                 expect(instance.isLeaderTime()).to.be.true;
             });
         });

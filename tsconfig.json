@@ -10,14 +10,12 @@
         "esModuleInterop": true,
         "noImplicitAny": false
     },
-//    "include": [
-//        "src/index.ts"
-//    ],
     "exclude": [
         "**/e2e/*",
         "node_modules",
         "**/test/*",
         "dist",
-        "**/projects/*"
+        "**/projects/*",
+        "hardhat.config.ts"
     ]
 }
