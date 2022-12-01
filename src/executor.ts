@@ -1,25 +1,8 @@
-import {readdirSync, statSync} from "fs";
 import * as path from 'path';
 import {Engine} from "./engine";
 import dotenv from 'dotenv';
 import * as _process from "process";
-import {error, log} from "./utils";
-
-// TODO: Executor class?
-
-function getMatchingFiles(dirPath: string, arrayOfFiles: string[] = []) {
-    const files = readdirSync(dirPath)
-    arrayOfFiles = arrayOfFiles || []
-    files.forEach(function (file) {
-        if (statSync(dirPath + "/" + file).isDirectory()) {
-            arrayOfFiles = getMatchingFiles(dirPath + "/" + file, arrayOfFiles)
-        } else {
-            const fileName = path.join(__dirname, dirPath, "/", file);
-            if (fileName.match(_process.env.PROJECTS_PATTERN!)) arrayOfFiles.push(fileName)
-        }
-    })
-    return arrayOfFiles;
-}
+import {error, getMatchingFiles, log} from "./utils";
 
 async function main() {
     process.on('message', async (guardians: {}) => {
@@ -35,8 +18,7 @@ async function main() {
                 'bsc': {"id": 56, "rpcUrl": _process.env.BSC_PROVIDER},
                 "goerli": {"id": 5, rpcUrl: _process.env.GOERLI_PROVIDER}
             },
-            guardians,
-            _process.env.SIGNER_URL)
+            guardians)
 
         process.on('unhandledRejection', (reason, promise) => {
             error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);

@@ -1,37 +1,17 @@
 import path, {resolve} from "path";
-import {execSync, fork} from "child_process";
+import {ChildProcess, execSync, fork} from "child_process";
 import {PROCESS_TIMEOUT, REPO_URL} from "./constants";
-import {error, log} from "./utils";
-import fetch from "node-fetch";
+import {error, getCommittee, log} from "./utils";
 import * as _ from 'lodash';
 import * as process from "process";
 import dotenv from 'dotenv';
 
-class Syncer {
-    private children = {}
+export class Syncer {
+    private children: {[id: string] : ChildProcess & {timestamp: number} } = {}
     private readonly executorPath: any;
 
     constructor(executorPath) {
         this.executorPath = resolve(executorPath);
-    }
-
-    async getCommittee() {
-        let response = await fetch(process.env.MGMT_SERVICE_URL!);
-        const mgmt = await response.json();
-        const selfAddress = mgmt.Payload.Config['node-address'].toLowerCase()
-
-        const guardians = {};
-        for (const node of mgmt.Payload.CurrentCommittee) {
-            const gAddress = `0x${node.EthAddress}`;
-            const g = mgmt.Payload.CurrentTopology.find(x => x.EthAddress === node.EthAddress)
-            guardians[gAddress] = {
-                weight: node.Weight,
-                nodeAddress: `0x${g.OrbsAddress}`,
-                ip: g.Ip,
-                currentNode: g.OrbsAddress === selfAddress
-            };
-        }
-        return guardians;
     }
 
     restart(committee) {
@@ -51,9 +31,9 @@ class Syncer {
         // check for zombie processes
         const time = new Date().getTime();
         for (const id in this.children) {
-            if (time - this.children[id].timestamp >= PROCESS_TIMEOUT && child.pid) {
+            if (time - this.children[id].timestamp >= PROCESS_TIMEOUT ) {
                 this.children[id].kill('SIGKILL');
-                delete this.children[child.pid];
+                delete this.children[child.pid!];
             }
         }
     }
@@ -68,7 +48,7 @@ class Syncer {
         while (true) {
             log("Checking for changes...")
             // Check for changes in committee
-            let newCommittee = await this.getCommittee();
+            let newCommittee = await getCommittee(process.env.MGMT_SERVICE_URL!);
             if (!_.isEqual(new Set(Object.keys(oldCommittee)), new Set(Object.keys(newCommittee)))) {
                 log("Committee has changed, (re)starting...")
                 this.restart(newCommittee);

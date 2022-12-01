@@ -1,4 +1,3 @@
-import Signer from "orbs-signer-client";
 import Web3 from "web3";
 import {Lambda} from "./lambda";
 import {scheduleJob} from "node-schedule";
@@ -9,19 +8,16 @@ import {SignerProvider} from "./customProvider"
 import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN} from './constants'
 
 export class Engine {
-    private web3: {} = {};
     private readonly guardians: {};
     public runningTasks: number;
     public lambdas: {};
     private currentProject: string;
-    private signer: Signer;
     private readonly selfAddress: string;
     readonly selfIndex: number;
     public isShuttingDown: boolean;
     private networksMapping: {};
 
-    constructor(networksMapping: {}, guardians: {[key: string] : {weight: number, nodeAddress: string, ip: string, currentNode: boolean}}, signerUrl) {
-        this.signer = new Signer(signerUrl);
+    constructor(networksMapping: {}, guardians: {[key: string] : {weight: number, nodeAddress: string, ip: string, currentNode: boolean}}) {
         this.guardians = guardians;
         this.runningTasks = 0;
         // this.selfAddress = `0x${Object.values(guardians).find(g => g.currentNode === true)!.nodeAddress}`; // TODO
@@ -37,16 +33,7 @@ export class Engine {
         const _this = this;
         const provider = new SignerProvider({
             host: this.networksMapping[network].rpcUrl,
-            signTransaction: async (txData, cb) => {
-                try {
-                    txData.gasLimit = txData.gas ?? await this.web3[network].eth.estimateGas(txData)
-                    const result = await _this.signer.sign(txData, this.networksMapping[network].id);
-                    cb(null, result.rawTransaction);
-                } catch (e) {
-                    // @ts-ignore
-                    error(e.message)
-                }
-            }
+            networkId: this.networksMapping[network].id
         });
         const web3 = new Web3(provider);
         web3.eth.defaultAccount = this.selfAddress; // for sendTransaction
