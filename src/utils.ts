@@ -4,7 +4,6 @@ import path from "path";
 import _process from "process";
 import fetch from "node-fetch";
 import process from "process";
-import Web3 from "web3";
 
 export function intervalToMinutes(pattern: string) : number {
     const match = /(\d+) ?([mhd])/i.exec(pattern);
@@ -84,17 +83,10 @@ export async function getCommittee(mgmtServiceUrl) {
     return guardians;
 }
 
-export async function calcGasPrice(chainId, baseFee, urgencyInSeconds, maxGasPrice) {
-    if (maxGasPrice && maxGasPrice > baseFee) {
-        const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?eip1559=false&accept=10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100&apikey=${process.env.OWLRACLE_APIKEY}`);
+export async function calcGasPrice(chainId) {
+        const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?accept=75&apikey=${process.env.OWLRACLE_APIKEY}`);
         if (res.status === 200) {
             const data = await res.json();
-            let acceptance = urgencyInSeconds ? 1 - Math.pow(0.01, data.avgTime / urgencyInSeconds) : 0.75 // acceptance within the desired time with 99% probability. (https://www.statology.org/probability-of-at-least-two). default is 0.75
-            const price = data.speeds.find(speed => {
-                if (speed.acceptance >= acceptance) return speed.gasPrice
-            }).gasPrice
-            const maxPrice = maxGasPrice ? Math.min(price, maxGasPrice) : price;
-            return Web3.utils.toHex(Web3.utils.toWei(maxPrice.toString(), 'gwei'));
+            return data.speeds[1]
         } else error(`Owlracle request failed with status code ${res.status}`);
-    } else log(`maxGasPrice ${maxGasPrice} < base fee ${baseFee}`)
 }

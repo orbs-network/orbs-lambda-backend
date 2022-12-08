@@ -20,16 +20,16 @@
     "child_process": "^1.0.2",
     "cron-parser": "^4.4.0",
     "dotenv": "^16.0.3",
-    "ethjs-provider-signer": "^0.1.4",
     "fs-extra": "^10.1.0",
     "lodash": "^4.17.21",
     "node-fetch": "^2.6.5",
     "node-schedule": "^2.1.0",
-    "orbs-signer-client": "^1.1.0",
+    "orbs-signer-client": "^1.2.0",
     "path": "^0.12.7",
+    "sinon": "^15.0.0",
     "ts-node": "^8.8.1",
     "typescript": "^4.7.4",
-    "web3": "^1.7.3"
+    "web3": "^1.8.1"
   },
   "scripts": {
     "build": "tsc --skipLibCheck",

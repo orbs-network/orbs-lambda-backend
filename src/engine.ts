@@ -1,11 +1,11 @@
 import Web3 from "web3";
 import {Lambda} from "./lambda";
 import {scheduleJob} from "node-schedule";
-import {error, hashStringToNumber, intervalToMinutes, log, validateCron} from "./utils";
-import {AbiItem} from "web3-utils";
+import {calcGasPrice, error, hashStringToNumber, intervalToMinutes, log, validateCron} from "./utils";
+import utils, {AbiItem} from "web3-utils";
 import {ContractOptions} from "web3-eth-contract";
-import {SignerProvider} from "./customProvider"
 import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN} from './constants'
+import {CustomProvider} from "./customProvider";
 
 export class Engine {
     private readonly guardians: {};
@@ -16,12 +16,13 @@ export class Engine {
     readonly selfIndex: number;
     public isShuttingDown: boolean;
     private networksMapping: {};
+    private readonly pk: string;
 
-    constructor(networksMapping: {}, guardians: {[key: string] : {weight: number, nodeAddress: string, ip: string, currentNode: boolean}}) {
+    constructor(networksMapping: {}, guardians: {[key: string] : {weight: number, nodeAddress: string, ip: string, currentNode: boolean}}, selfAddress, pk) {
         this.guardians = guardians;
         this.runningTasks = 0;
-        // this.selfAddress = `0x${Object.values(guardians).find(g => g.currentNode === true)!.nodeAddress}`; // TODO
-        this.selfAddress = '0x216FF847E6e1cf55618FAf443874450f734885e0';
+        this.selfAddress = selfAddress;
+        this.pk = pk;
         this.selfIndex = this.getGuardianIndex();
         this.lambdas = {};
         this.currentProject = "";
@@ -31,12 +32,38 @@ export class Engine {
 
     initWeb3(network) {
         const _this = this;
-        const provider = new SignerProvider({
-            host: this.networksMapping[network].rpcUrl,
-            networkId: this.networksMapping[network].id
-        });
-        const web3 = new Web3(provider);
-        web3.eth.defaultAccount = this.selfAddress; // for sendTransaction
+        const provider = new CustomProvider(this.networksMapping[network].rpcUrl)
+        const web3 = new Web3(provider)
+
+        const fn = web3.eth.accounts.signTransaction;
+        web3.eth.accounts.signTransaction = async function signTransaction(tx, privateKey, callback)  {
+            tx.gas = tx.gas ?? await web3.eth.estimateGas(tx);
+            // @ts-ignore
+            if (tx.type === '0x2' || tx.type === undefined) { // EIP-1559
+                delete tx.gasPrice;
+                if (!tx.maxFeePerGas) {
+                    const gasPrice = await calcGasPrice(_this.networksMapping[network].id);
+                    if (gasPrice) {
+                        tx.maxFeePerGas = Web3.utils.toHex(Web3.utils.toWei(gasPrice["maxFeePerGas"].toString(), 'gwei'));
+                        tx.maxPriorityFeePerGas = tx.maxPriorityFeePerGas ?? Web3.utils.toHex(Web3.utils.toWei(gasPrice["maxPriorityFeePerGas"].toString(), 'gwei'));
+                    } else { // calculation has returned an error
+                        const feeHistory = await web3.eth.getFeeHistory(1, "latest", [0.75]);
+                        tx.maxFeePerGas = Web3.utils.toHex(utils.toBN(feeHistory.baseFeePerGas[0])
+                            .mul(utils.toBN(2))
+                            .add(utils.toBN(feeHistory.reward[0][0])));
+                        tx.maxPriorityFeePerGas = tx.maxPriorityFeePerGas ?? feeHistory.reward[0][0];
+                    }
+                }
+            }
+            console.log(tx)
+            return fn.call(this, tx, privateKey, callback);
+        }
+
+        const account = web3.eth.accounts.privateKeyToAccount(this.pk);
+        web3.eth.accounts.wallet.add(account);
+
+        web3.eth.defaultAccount = account.address; // for sendTransaction
+
         // @ts-ignore
         web3.eth.Contract = class CustomContract extends web3.eth.Contract {
             constructor(jsonInterface: AbiItem[], address?: string, options?: ContractOptions) {
@@ -157,6 +184,13 @@ export class Engine {
                 // @ts-ignore
                 await web3.currentProvider.disconnect();
             }
+
+            // fn(params).catch(e => error(`Task ${fn.name} failed with error: ${e}`)).finally(async () => {
+            //     lambda.isRunning = false;
+            //     this.runningTasks--;
+            //     // @ts-ignore
+            //     if (web3) await web3.currentProvider.disconnect();
+            // });
         }
     }
 

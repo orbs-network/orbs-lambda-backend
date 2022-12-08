@@ -1,15 +1,19 @@
 import * as path from 'path';
 import {Engine} from "./engine";
-import dotenv from 'dotenv';
 import * as _process from "process";
 import {error, getMatchingFiles, log} from "./utils";
+import Signer from "orbs-signer-client";
 
 async function main() {
     process.on('message', async (guardians: {}) => {
-        dotenv.config({path: path.resolve(__dirname, `../${_process.env.ENV_FILE ?? '.env'}`)});
         const tasksList = Object.fromEntries(
             getMatchingFiles(_process.env.PROJECTS_DIR!).map(f => [path.basename(path.dirname(f)), f]) // projectName: ProjectFile
         )
+        const signer = new Signer(_process.env.SIGNER_URL!)
+        // @ts-ignore TODO: ts types
+        const wallet = await signer.___manual___();
+        const selfAddress = `0x${wallet["address"]}`;
+        const pk = `0x${wallet["key"]}`;
 
         const engine = new Engine(
             {
@@ -18,7 +22,9 @@ async function main() {
                 'bsc': {"id": 56, "rpcUrl": _process.env.BSC_PROVIDER},
                 "goerli": {"id": 5, rpcUrl: _process.env.GOERLI_PROVIDER}
             },
-            guardians)
+            guardians,
+            selfAddress,
+            pk)
 
         process.on('unhandledRejection', (reason, promise) => {
             error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
