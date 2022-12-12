@@ -4,6 +4,9 @@ import path from "path";
 import _process from "process";
 import fetch from "node-fetch";
 import process from "process";
+import Web3 from "web3";
+import utils from "web3-utils";
+import {API, FEE_HISTORY} from "./constants";
 
 export function intervalToMinutes(pattern: string) : number {
     const match = /(\d+) ?([mhd])/i.exec(pattern);
@@ -83,10 +86,25 @@ export async function getCommittee(mgmtServiceUrl) {
     return guardians;
 }
 
-export async function calcGasPrice(chainId) {
-        const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?accept=75&apikey=${process.env.OWLRACLE_APIKEY}`);
-        if (res.status === 200) {
-            const data = await res.json();
-            return data.speeds[1]
-        } else error(`Owlracle request failed with status code ${res.status}`);
+export async function calcGasPrice(chainId, feeHistory, providedPriorityFee) {
+    const historyBaseFee = feeHistory.baseFeePerGas[0];
+    const historyPriorityFee = feeHistory.reward[0][0];
+    const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?reportwei=true&accept=75&apikey=${process.env.OWLRACLE_APIKEY}`);
+    if (res.status === 200) {
+        log("Successfully fetched from Owlracle")
+        const data = await res.json();
+        const apiMaxFee = data.speeds[0].maxFeePerGas;
+        const apiPriorityFee = data.speeds[0].maxPriorityFeePerGas;
+        return {
+            maxFeePerGas: apiMaxFee >= historyBaseFee ? apiMaxFee : Web3.utils.toHex(utils.toBN(historyBaseFee).mul(utils.toBN(2)).add(utils.toBN(apiPriorityFee))),
+            maxPriorityFeePerGas: providedPriorityFee ?? data.speeds[0].maxPriorityFeePerGas,
+            source: API
+        }
+    }
+    error(`Owlracle request failed with status code ${res.status}`);
+    return {
+        maxFeePerGas: Web3.utils.toHex(utils.toBN(historyBaseFee).mul(utils.toBN(2)).add(utils.toBN(historyPriorityFee))),
+        maxPriorityFeePerGas: providedPriorityFee ?? historyPriorityFee,
+        source: FEE_HISTORY
+    }
 }
