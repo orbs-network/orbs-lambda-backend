@@ -6,6 +6,11 @@ import {set} from 'mockdate'
 import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN} from "../../src/constants";
 import {intervalToMinutes, validateCron, getMatchingFiles, getCommittee, calcGasPrice, error} from "../../src/utils";
 import {API, FEE_HISTORY} from "../../src/constants";
+import {account, erc20s} from "@defi.org/web3-candies";
+import {useChaiBigNumber} from "@defi.org/web3-candies/dist/hardhat";
+
+useChaiBigNumber()
+
 
 describe("Utils", () => {
     it("Should return a task list", () => {
@@ -85,4 +90,33 @@ describe("Engine", () => {
         });
     });
 
+    describe("Test handlers", () => {
+        const engine = new Engine({'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians)
+        engine.loadModules({test: "/Users/idanatar/sources/orbs-lambda-backend/test/e2e/index.js"}); // TODO
+
+        it("onInterval", async () => {
+            set(TASK_TIME_DIVISION_MIN*MS_TO_MINUTES*Object.keys(guardians).length);
+            await engine._onInterval()
+            const dai = erc20s.eth.DAI();
+            const owner = await account();
+            expect(await dai.methods.allowance(owner, owner).call()).bignumber.eq(1);
+            expect(engine.runningTasks).to.equal(0);
+        });
+        it("onCron", async () => {
+            const lambda = engine.lambdas['test'][1]
+            await engine._onCron(lambda)
+            const wbtc = erc20s.eth.WBTC();
+            const owner = await account();
+            expect(await wbtc.methods.allowance(owner, owner).call()).bignumber.eq(1);
+            expect(engine.runningTasks).to.equal(0);
+        });
+        it("onEvent", async () => {
+            const lambda = engine.lambdas['test'][2]
+            await engine._onEvent({transactionHash: "0x09c3be8189eb5bdd9ab559dcddb3ae09d2b394a5e96fef3566a3232e088fa3"}, lambda)
+            const weth = erc20s.eth.WETH();
+            const owner = await account();
+            expect(await weth.methods.allowance(owner, owner).call()).bignumber.eq(1);
+            expect(engine.runningTasks).to.equal(0);
+        });
+    })
 })
