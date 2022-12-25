@@ -1,12 +1,15 @@
 import {parseExpression} from "cron-parser";
-import {readdirSync, statSync} from "fs";
+import {readdirSync, readFileSync, statSync} from "fs";
 import path from "path";
-import _process from "process";
 import fetch from "node-fetch";
 import process from "process";
 import Web3 from "web3";
 import utils from "web3-utils";
-import {API, FEE_HISTORY} from "./constants";
+import {SOURCE_API, SOURCE_FEE_HISTORY} from "./constants";
+import yargs from 'yargs';
+import {Config} from "./interfaces";
+import {createHash} from "crypto";
+import BigNumber from "bignumber.js";
 
 export function intervalToMinutes(pattern: string) : number {
     const match = /(\d+) ?([mhd])/i.exec(pattern);
@@ -33,35 +36,30 @@ export function validateCron(pattern: string) : string {
     return '';
 }
 
-export function hashStringToNumber(str) : number {
-    let hash = 5381;
-    let i = str.length;
-    while(i) {
-        hash = (hash * 33) ^ str.charCodeAt(--i);
-    }
-    return hash >>> 0;
-    // return Math.abs(str.split('').reduce((a,b) => (((a << 5) - a) + b.charCodeAt(0))|0, 0));
+export function hashStringToNumber(str) {
+    const hash = str.startsWith("0x") ? str : createHash('sha256').update(str).digest('hex');
+    return new BigNumber(hash, 16);
 }
 
 export function log(obj) {
     const str = typeof(obj) === 'object' ? JSON.stringify(obj, undefined, 2) : obj;
-    console.log(`<${process.pid}> ${str}`)
+    console.log(`${new Date().toISOString()} <${process.pid}> ${str}`)
 }
 
 export function error(obj) {
     const str = typeof(obj) === 'object' ? JSON.stringify(obj, undefined, 2) : obj;
-    console.error(`<${process.pid}> ERROR: ${str}`)
+    console.error(`${new Date().toISOString()} <${process.pid}> ERROR: ${str}`)
 }
 
-export function getMatchingFiles(dirPath: string, arrayOfFiles: string[] = []) {
+export function getMatchingFiles(dirPath: string, projectsPattern: string, arrayOfFiles: string[] = []) {
     const files = readdirSync(dirPath)
     arrayOfFiles = arrayOfFiles || []
     files.forEach(function (file) {
         if (statSync(dirPath + "/" + file).isDirectory()) {
-            arrayOfFiles = getMatchingFiles(dirPath + "/" + file, arrayOfFiles)
+            arrayOfFiles = getMatchingFiles(dirPath + "/" + file, projectsPattern, arrayOfFiles)
         } else {
             const fileName = path.join(__dirname, dirPath, "/", file);
-            if (fileName.match(_process.env.PROJECTS_PATTERN!)) arrayOfFiles.push(fileName)
+            if (fileName.match(projectsPattern)) arrayOfFiles.push(fileName)
         }
     })
     return arrayOfFiles;
@@ -74,11 +72,11 @@ export async function getCommittee(mgmtServiceUrl) {
 
     const guardians = {};
     for (const node of mgmt.Payload.CurrentCommittee) {
-        const gAddress = `0x${node.EthAddress}`;
         const g = mgmt.Payload.CurrentTopology.find(x => x.EthAddress === node.EthAddress)
-        guardians[gAddress] = {
+        guardians[node.Name] = {
             weight: node.Weight,
             nodeAddress: `0x${g.OrbsAddress}`,
+            guardianAddress: `0x${node.EthAddress}`,
             ip: g.Ip,
             currentNode: g.OrbsAddress === selfAddress
         };
@@ -89,22 +87,76 @@ export async function getCommittee(mgmtServiceUrl) {
 export async function calcGasPrice(chainId, feeHistory, providedPriorityFee) {
     const historyBaseFee = feeHistory.baseFeePerGas[0];
     const historyPriorityFee = feeHistory.reward[0][0];
-    const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?reportwei=true&accept=75&apikey=${process.env.OWLRACLE_APIKEY}`);
+    const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?reportwei=true&accept=75&apikey=111fbcca2093495eae4e108bbf581282`);
     if (res.status === 200) {
-        log("Successfully fetched from Owlracle")
+        console.debug("Successfully fetched gas data from Owlracle")
         const data = await res.json();
         const apiMaxFee = data.speeds[0].maxFeePerGas;
         const apiPriorityFee = data.speeds[0].maxPriorityFeePerGas;
         return {
             maxFeePerGas: apiMaxFee >= historyBaseFee ? apiMaxFee : Web3.utils.toHex(utils.toBN(historyBaseFee).mul(utils.toBN(2)).add(utils.toBN(apiPriorityFee))),
             maxPriorityFeePerGas: providedPriorityFee ?? data.speeds[0].maxPriorityFeePerGas,
-            source: API
+            source: SOURCE_API
         }
     }
     error(`Owlracle request failed with status code ${res.status}`);
     return {
         maxFeePerGas: Web3.utils.toHex(utils.toBN(historyBaseFee).mul(utils.toBN(2)).add(utils.toBN(historyPriorityFee))),
         maxPriorityFeePerGas: providedPriorityFee ?? historyPriorityFee,
-        source: FEE_HISTORY
+        source: SOURCE_FEE_HISTORY
     }
+}
+
+export function parseArgs(argv: string[]): Config {
+    let res: Config;
+
+    // parse command line args
+    const args = yargs(argv)
+        .option('config', {
+            type: 'array',
+            required: false,
+            string: true,
+            default: ['../config.json'],
+            description: 'list of config files',
+        })
+        .exitProcess(false)
+        .parse();
+
+    // read input config JSON files
+    try {
+        res = Object.assign(
+            {},
+            ...args.config.map((configPath) => JSON.parse(readFileSync(configPath).toString()))
+        );
+    } catch (err) {
+        error(`Cannot parse input JSON config files: [${args.config}].`);
+        throw err;
+    }
+    return res;
+}
+
+export function getCurrentVersion() {
+  try {
+    return readFileSync('./version').toString().trim();
+  } catch (err) {
+    error(`Could not find version: ${err}`);
+  }
+  return '';
+}
+
+export function getHumanUptime(uptime): string {
+    // get total seconds between the times
+    let delta = Math.abs(Date.now() - uptime) / 1000;
+    // calculate (and subtract) whole days
+    const days = Math.floor(delta / 86400);
+    delta -= days * 86400;
+    // calculate (and subtract) whole hours
+    const hours = Math.floor(delta / 3600) % 24;
+    delta -= hours * 3600;
+    // calculate (and subtract) whole minutes
+    const minutes = Math.floor(delta / 60) % 60;
+    delta -= minutes * 60;
+    // what's left is seconds
+    const seconds = delta % 60;  // in theory the modulus is not required
+    return `${days} days : ${hours}:${minutes}:${seconds}`;
 }

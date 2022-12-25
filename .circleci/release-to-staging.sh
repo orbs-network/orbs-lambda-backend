@@ -4,10 +4,10 @@ docker login -u $DOCKER_HUB_LOGIN -p $DOCKER_HUB_PASSWORD
 
 export VERSION=$(cat .version)
 
-docker push orbsnetworkstaging/orbs-lambda-backend:$VERSION
+docker push orbsnetworkstaging/vm-lambda:$VERSION
 
 if [[ $CIRCLE_BRANCH == "master" ]] ;
 then
-  docker tag orbsnetworkstaging/orbs-lambda-backend:$VERSION orbsnetworkstaging/orbs-lambda-backend:experimental
-  docker push orbsnetworkstaging/orbs-lambda-backend:experimental
+  docker tag orbsnetworkstaging/vm-lambda:$VERSION orbsnetworkstaging/vm-lambda:experimental
+  docker push orbsnetworkstaging/vm-lambda:experimental
 fi
