@@ -107,7 +107,7 @@ export async function calcGasPrice(chainId, feeHistory, providedPriorityFee) {
     }
 }
 
-export function parseArgs(argv: string[]): Config {
+export function parseArgs(argv: string[], confPath): Config {
     let res: Config;
 
     // parse command line args
@@ -116,7 +116,7 @@ export function parseArgs(argv: string[]): Config {
             type: 'array',
             required: false,
             string: true,
-            default: ['../config.json'],
+            default: [confPath],
             description: 'list of config files',
         })
         .exitProcess(false)
@@ -137,7 +137,7 @@ export function parseArgs(argv: string[]): Config {
 
 export function getCurrentVersion() {
   try {
-    return readFileSync('./version').toString().trim();
+    return readFileSync('../.version').toString().trim();
   } catch (err) {
     error(`Could not find version: ${err}`);
   }

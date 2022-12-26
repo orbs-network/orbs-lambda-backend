@@ -49,7 +49,7 @@ async function runEngine(config, guardians) {
                     if (lambda.isRunning) runningTasks += `${project}, ${lambda.taskName}\n`
                 }
             }
-            log(`Still running ${engine.runningTasks} tasks:\n${runningTasks}Waiting for ${(new Date().getTime() - t) / 5000} seconds to finish...`);
+            log(`Still running ${engine.runningTasks} tasks:\n${runningTasks}Waiting for ${(new Date().getTime() - t) / 1000} seconds to finish...`);
             await new Promise(resolve => setTimeout(resolve, 3000));
         }
         process.exit();
@@ -62,6 +62,7 @@ async function runEngine(config, guardians) {
 process.on('message', async (message: {type: string, payload: any}) => {
     switch(message.type) {
         case MESSAGE_START:
+            log("Running Engine...")
             engine = await runEngine(message.payload.config, message.payload.committee);
             break;
         case MESSAGE_GET_STATUS:

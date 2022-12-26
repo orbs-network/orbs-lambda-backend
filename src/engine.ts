@@ -26,10 +26,12 @@ export class Engine {
     private readonly networksMapping: {};
     private readonly signer: any;
     private readonly selfName: string;
-    private readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; ServiceLaunchTime: number };
+    private readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number };
     private readonly tasksMap: any;
+    private readonly alwaysLeader: boolean;
 
     constructor(tasksMap, networksMapping: {}, guardians: {[name: string] : {weight: number, nodeAddress: string, guardianAddress: string, ip: string, currentNode: boolean}}, signer) {
+        this.alwaysLeader = process.env.NODE_ENV !== 'prod';
         this.tasksMap = tasksMap;
         this.signer = signer;
         this.guardians = guardians;
@@ -41,7 +43,7 @@ export class Engine {
         this.isShuttingDown = false;
         this.networksMapping = networksMapping;
         this.status = {
-            ServiceLaunchTime: Date.now(), // TODO: engine or index?
+            EngineLaunchTime: Date.now(),
             tasksCount: 0,
             isLeader: false,
             leaderIndex: -1,
@@ -96,12 +98,12 @@ export class Engine {
     }
 
     isLeaderTime() {
-        return this.getCurrentLeaderIndex() === this.selfIndex;
+        return this.alwaysLeader || this.getCurrentLeaderIndex() === this.selfIndex;
     }
 
     isLeaderHash(str: string) {
         const num = hashStringToNumber(str)
-        return Number(num.modulo(Object.keys(this.guardians).length)) === this.selfIndex;
+        return this.alwaysLeader || Number(num.modulo(Object.keys(this.guardians).length)) === this.selfIndex;
     }
 
     shouldRunInterval(projectName, interval) {
@@ -235,7 +237,7 @@ export class Engine {
         const leaderIndex = this.getCurrentLeaderIndex();
         this.status.leaderIndex = leaderIndex;
         this.status.leaderName = Object.keys(this.guardians)[leaderIndex];
-        this.status.isLeader = this.isLeaderTime();
+        this.status.isLeader = this.alwaysLeader || this.isLeaderTime();
         this.status.tasks = this.lambdas;
         this.status.successTX.splice(MAX_LAST_TX);
         this.status.failTX.splice(MAX_LAST_TX);

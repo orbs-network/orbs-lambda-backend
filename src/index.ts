@@ -5,14 +5,16 @@ import process from "process";
 import * as _ from "lodash";
 import {existsSync, mkdirSync, writeFileSync} from "fs";
 import {dirname} from "path";
+import {Status} from "./interfaces";
 
 const children: {[id: string] : ChildProcess & {timestamp: number} } = {}
 
 
 function writeStatus(state: any) {
     const now = new Date();
+    state.ServiceLaunchTime = launchTime;
     const statusText = `tasksCount: ${state.tasksCount}, leaderName: ${state.leaderName}`;
-    const status: any = {
+    const status: Status = {
         Status: statusText,
         Timestamp: now.toISOString(),
         Payload: {
@@ -30,9 +32,9 @@ function writeStatus(state: any) {
     if (state.error)
         status.Error = state.error;
 
-    if (!existsSync(dirname(config.StatusJsonPath))) mkdirSync(dirname(config.StatusJsonPath), { recursive: true });
+    if (!existsSync(dirname(config.statusJsonPath))) mkdirSync(dirname(config.statusJsonPath), { recursive: true });
     const content = JSON.stringify(status, null, 2);
-    writeFileSync(config.StatusJsonPath, content);
+    writeFileSync(config.statusJsonPath, content);
     console.log("Wrote status");
 }
 
@@ -96,8 +98,10 @@ async function runLoop(config) {
     }
 }
 
-log('Service Lambda started.');
-const config = parseArgs(process.argv);
+const launchTime = Date.now();
+log(`Service Lambda started. env = ${process.env.NODE_ENV}`);
+const confPath = `../config_${process.env.NODE_ENV}.json`;
+const config = parseArgs(process.argv, confPath);
 // log(`Input config: '${JSON.stringify(config)}'.`);
 runLoop(config).catch((err) => {
     log('Exception thrown from runLoop, shutting down:');
