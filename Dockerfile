@@ -13,7 +13,7 @@ COPY dist ./dist
 
 COPY ./entrypoint.sh /opt/orbs/service
 
-ENV NODE_ENV prod
+ENV NODE_ENV staging
 COPY ./config_${NODE_ENV}.json ./
 
 # install healthcheck based on status.json
