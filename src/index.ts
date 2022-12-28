@@ -11,11 +11,8 @@ const children: {[id: string] : ChildProcess & {timestamp: number} } = {}
 
 function getConfig() {
     const confPath = `./config_${process.env.NODE_ENV}.json`;
-    console.log(confPath)
     const config = parseArgs(process.argv, confPath);
-    log(config)
     const workdir = process.env.WORKDIR ?? process.cwd();
-    log(workdir)
     config.projectsDir = join(workdir, config.projectsDir);
     config.statusJsonPath = join(workdir, config.statusJsonPath);
     config.executorPath = join(workdir, config.executorPath);

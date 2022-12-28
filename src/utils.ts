@@ -115,7 +115,11 @@ export async function calcGasPrice(chainId, feeHistory, providedPriorityFee) {
 }
 
 export function parseArgs(argv: string[], confPath): Config {
-    let res: Config;
+    // management service passes the default configs as a cli arg ("--config config.json --config keys.json")
+    // need to parse those and add our custom config to them
+
+    let res;
+    const customConfig : Config = JSON.parse(readFileSync(confPath).toString());
 
     // parse command line args
     const args = yargs(argv)
@@ -129,10 +133,11 @@ export function parseArgs(argv: string[], confPath): Config {
         .exitProcess(false)
         .parse();
 
-    // read input config JSON files
+    // read input config JSON files coming from argv + custom config
     try {
         res = Object.assign(
             {},
+            customConfig,
             ...args.config.map((configPath) => JSON.parse(readFileSync(configPath).toString()))
         );
     } catch (err) {

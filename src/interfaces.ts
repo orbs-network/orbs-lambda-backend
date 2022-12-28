@@ -8,7 +8,7 @@ export interface Config {
     ethereumProvider: string,
     bscProvider: string,
     goerliProvider: string,
-    signerUrl: string,
+    SignerEndpoint: string,
     statusJsonPath: string
 }
 
