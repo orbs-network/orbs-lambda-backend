@@ -1,7 +1,7 @@
 {
   "executorPath": "/dist/executor.js",
   "gitTag": "prod",
-  "mgmtServiceUrl": "http://localhost/services/management-service/status",
+  "mgmtServiceUrl": "http://management-service:8080/status",
   "projectsDir": "/orbs-lambda/projects",
   "projectsPattern": "/\\w+\\/.*index.js",
   "polygonProvider": "wss://polygon-mainnet.g.alchemy.com/v2/ycYturL7FncO-c6xtUDKApfIFnorZToh",
