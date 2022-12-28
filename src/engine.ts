@@ -1,7 +1,7 @@
 import Web3 from "web3";
 import {Lambda} from "./lambda";
 import {scheduleJob} from "node-schedule";
-import {calcGasPrice, error, hashStringToNumber, intervalToMinutes, log, validateCron} from "./utils";
+import {calcGasPrice, debug, error, hashStringToNumber, intervalToMinutes, log, validateCron} from "./utils";
 import {AbiItem} from "web3-utils";
 import {ContractOptions} from "web3-eth-contract";
 import {
@@ -255,7 +255,7 @@ export class Engine {
             const module = require(tasksMap[project]);
             module.register(this);
         }
-        // log(this.lambdas)
+        debug(this.lambdas)
     }
 
     run() {

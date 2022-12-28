@@ -51,6 +51,13 @@ export function error(obj) {
     console.error(`${new Date().toISOString()} <${process.pid}> ERROR: ${str}`)
 }
 
+export function debug(obj) {
+    if (process.env.NODE_ENV !== "debug") return;
+    const str = typeof(obj) === 'object' ? JSON.stringify(obj, undefined, 2) : obj;
+    console.log(`${new Date().toISOString()} <${process.pid}> DEBUG: ${str}`)
+}
+
+
 export function getMatchingFiles(dirPath: string, projectsPattern: string, arrayOfFiles: string[] = []) {
     const files = readdirSync(dirPath)
     arrayOfFiles = arrayOfFiles || []
@@ -58,7 +65,7 @@ export function getMatchingFiles(dirPath: string, projectsPattern: string, array
         if (statSync(dirPath + "/" + file).isDirectory()) {
             arrayOfFiles = getMatchingFiles(dirPath + "/" + file, projectsPattern, arrayOfFiles)
         } else {
-            const fileName = path.join(__dirname, dirPath, "/", file);
+            const fileName = path.join(dirPath, "/", file);
             if (fileName.match(projectsPattern)) arrayOfFiles.push(fileName)
         }
     })
@@ -137,7 +144,7 @@ export function parseArgs(argv: string[], confPath): Config {
 
 export function getCurrentVersion() {
   try {
-    return readFileSync('../.version').toString().trim();
+    return readFileSync('./.version').toString().trim();
   } catch (err) {
     error(`Could not find version: ${err}`);
   }

@@ -1,15 +1,23 @@
 import {ChildProcess, execSync, fork} from "child_process";
-import {error, getCommittee, getCurrentVersion, getHumanUptime, log, parseArgs} from "./utils";
+import {debug, error, getCommittee, getCurrentVersion, getHumanUptime, log, parseArgs} from "./utils";
 import {PROCESS_TIMEOUT, REPO_URL, MESSAGE_START, MESSAGE_GET_STATUS, MESSAGE_WRITE_STATUS} from "./constants";
 import process from "process";
 import * as _ from "lodash";
 import {existsSync, mkdirSync, writeFileSync} from "fs";
-import {dirname} from "path";
+import {dirname, join} from "path";
 import {Status} from "./interfaces";
 
 const children: {[id: string] : ChildProcess & {timestamp: number} } = {}
 
-
+function getConfig() {
+    const confPath = `./config_${process.env.NODE_ENV}.json`;
+    const config = parseArgs(process.argv, confPath);
+    const workdir = process.env.WORKDIR ?? process.cwd();
+    config.projectsDir = join(workdir, config.projectsDir);
+    config.statusJsonPath = join(workdir, config.statusJsonPath);
+    config.executorPath = join(workdir, config.executorPath);
+    return config;
+}
 function writeStatus(state: any) {
     const now = new Date();
     state.ServiceLaunchTime = launchTime;
@@ -74,7 +82,7 @@ async function runLoop(config) {
 
     let child;
     while (true) {
-        // log("Checking for changes...")
+        debug("Checking for changes...")
         // Check for changes in committee
         let newCommittee = await getCommittee(config.mgmtServiceUrl);
         if (!_.isEqual(new Set(Object.keys(oldCommittee)), new Set(Object.keys(newCommittee)))) {
@@ -100,8 +108,7 @@ async function runLoop(config) {
 
 const launchTime = Date.now();
 log(`Service Lambda started. env = ${process.env.NODE_ENV}`);
-const confPath = `../config_${process.env.NODE_ENV}.json`;
-const config = parseArgs(process.argv, confPath);
+const config = getConfig()
 // log(`Input config: '${JSON.stringify(config)}'.`);
 runLoop(config).catch((err) => {
     log('Exception thrown from runLoop, shutting down:');

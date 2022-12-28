@@ -1,8 +1,11 @@
 FROM node:16-alpine
 
-# standard working directory
-WORKDIR /opt/orbs
+ENV WORKDIR /opt/orbs
 
+# standard working directory
+WORKDIR ${WORKDIR}
+
+ RUN apk add --no-cache daemontools --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing
 RUN apk add --no-cache python3 make g++ git
 
 # install your app
@@ -11,16 +14,16 @@ RUN npm install
 
 COPY dist ./dist
 
-COPY ./entrypoint.sh /opt/orbs/service
+COPY ./entrypoint.sh ${WORKDIR}/service
 
-ENV NODE_ENV staging
+ENV NODE_ENV debug
 COPY ./config_${NODE_ENV}.json ./
 
 # install healthcheck based on status.json
 COPY ./healthcheck.sh ./
 COPY ./healthcheck.js ./
 
-HEALTHCHECK CMD /opt/orbs/healthcheck.sh
+HEALTHCHECK CMD ${WORKDIR}/healthcheck.sh
 
 # for debugging locally
-CMD /opt/orbs/service
+CMD ${WORKDIR}/service
