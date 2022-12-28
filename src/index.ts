@@ -8,11 +8,11 @@ import {dirname, join} from "path";
 import {Status} from "./interfaces";
 
 const children: {[id: string] : ChildProcess & {timestamp: number} } = {}
+const workdir = process.env.WORKDIR ?? process.cwd();
 
 function getConfig() {
     const confPath = `./config_${process.env.NODE_ENV}.json`;
     const config = parseArgs(process.argv, confPath);
-    const workdir = process.env.WORKDIR ?? process.cwd();
     config.projectsDir = join(workdir, config.projectsDir);
     config.statusJsonPath = join(workdir, config.statusJsonPath);
     config.executorPath = join(workdir, config.executorPath);
@@ -29,7 +29,7 @@ function writeStatus(state: any) {
             Uptime: Math.round((Date.now() - state.ServiceLaunchTime) / 1000),
             MemoryUsage: process.memoryUsage(),
             Version: {
-                Semantic: getCurrentVersion(),
+                Semantic: getCurrentVersion(workdir),
             },
             ...state,
             humanUptime: getHumanUptime(state.ServiceLaunchTime),

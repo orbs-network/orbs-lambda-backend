@@ -147,9 +147,9 @@ export function parseArgs(argv: string[], confPath): Config {
     return res;
 }
 
-export function getCurrentVersion() {
+export function getCurrentVersion(workdir) {
   try {
-    return readFileSync('./.version').toString().trim();
+    return readFileSync(`${workdir}/.version`).toString().trim();
   } catch (err) {
     error(`Could not find version: ${err}`);
   }
