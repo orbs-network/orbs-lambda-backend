@@ -12,6 +12,7 @@ RUN apk add --no-cache python3 make g++ git
 COPY package*.json ./
 RUN npm install
 
+COPY .version ./
 COPY dist ./dist
 
 COPY ./entrypoint.sh ${WORKDIR}/service

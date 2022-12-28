@@ -66,7 +66,8 @@ process.on('message', async (message: {type: string, payload: any}) => {
             engine = await runEngine(message.payload.config, message.payload.committee);
             break;
         case MESSAGE_GET_STATUS:
-             process.send!({type: MESSAGE_WRITE_STATUS, payload: await engine.generateState()});
+            if (engine)
+                process.send!({type: MESSAGE_WRITE_STATUS, payload: await engine.generateState()});
             break;
         default:
             error(`Unsupported message type: ${message.type}`)

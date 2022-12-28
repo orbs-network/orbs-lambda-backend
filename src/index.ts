@@ -101,7 +101,7 @@ async function runLoop(config) {
             localRev = remoteRev;
         } else execSync('rm -rf tmp');
 
-        if (child) child.send({type: MESSAGE_GET_STATUS});
+        child.send({type: MESSAGE_GET_STATUS});
         await new Promise(resolve => setTimeout(resolve, 60000));
     }
 }
