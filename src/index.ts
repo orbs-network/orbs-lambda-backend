@@ -11,8 +11,11 @@ const children: {[id: string] : ChildProcess & {timestamp: number} } = {}
 
 function getConfig() {
     const confPath = `./config_${process.env.NODE_ENV}.json`;
+    console.log(confPath)
     const config = parseArgs(process.argv, confPath);
+    log(config)
     const workdir = process.env.WORKDIR ?? process.cwd();
+    log(workdir)
     config.projectsDir = join(workdir, config.projectsDir);
     config.statusJsonPath = join(workdir, config.statusJsonPath);
     config.executorPath = join(workdir, config.executorPath);
@@ -109,7 +112,7 @@ async function runLoop(config) {
 const launchTime = Date.now();
 log(`Service Lambda started. env = ${process.env.NODE_ENV}`);
 const config = getConfig()
-// log(`Input config: '${JSON.stringify(config)}'.`);
+debug(`Input config: '${JSON.stringify(config)}'.`);
 runLoop(config).catch((err) => {
     log('Exception thrown from runLoop, shutting down:');
     error(err.stack);
