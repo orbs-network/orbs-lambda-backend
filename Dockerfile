@@ -16,7 +16,7 @@ COPY dist ./dist
 
 COPY ./entrypoint.sh ${WORKDIR}/service
 
-ENV NODE_ENV debug
+ENV NODE_ENV staging
 COPY ./config_${NODE_ENV}.json ./
 
 # install healthcheck based on status.json
