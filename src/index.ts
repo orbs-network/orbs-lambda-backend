@@ -7,7 +7,7 @@ import {existsSync, mkdirSync, writeFileSync} from "fs";
 import {dirname, join} from "path";
 import {Status} from "./interfaces";
 
-const children: {[id: string] : ChildProcess & {timestamp: number} } = {}
+const children: {[id: string] : {instance: ChildProcess, killTimestamp: number} } = {}
 const workdir = process.env.WORKDIR ?? process.cwd();
 
 function getConfig() {
@@ -43,17 +43,14 @@ function writeStatus(state: any) {
     if (!existsSync(dirname(config.statusJsonPath))) mkdirSync(dirname(config.statusJsonPath), { recursive: true });
     const content = JSON.stringify(status, null, 2);
     writeFileSync(config.statusJsonPath, content);
-    console.log("Wrote status");
+    debug("Wrote status");
 }
 
-function restart(executorPath, committee) {
-    // check for zombie processes
-    const time = new Date().getTime();
-    for (const id in children) {
-        if (time - children[id].timestamp >= PROCESS_TIMEOUT ) {
-            children[id].kill('SIGKILL');
-            delete children[id];
-        }
+function restart(executorPath, committee, oldChild) {
+    // kill the current Engine instance, if exists
+    if (oldChild) {
+        children[oldChild.pid].killTimestamp = new Date().getTime();
+        oldChild.kill();
     }
 
     log("Starting executor instance...");
@@ -67,7 +64,15 @@ function restart(executorPath, committee) {
             delete children[child.pid!];
         })
         child.send({type: MESSAGE_START, payload: {config, committee}});
-        children[child.pid] = Object.assign({'timestamp': new Date().getTime()}, child); // add spawn timestamp to child object
+        children[child.pid] = {instance: child, killTimestamp: 0};
+
+        // check for zombie processes
+        const time = new Date().getTime();
+        for (const id in children) {
+            if (children[id].killTimestamp && time - children[id].killTimestamp >= PROCESS_TIMEOUT ) {
+                children[id].instance.kill('SIGKILL');
+            }
+        }
         return child;
     }
     throw new Error("Failed to fork a new subprocess");
@@ -87,7 +92,7 @@ async function runLoop(config) {
         let newCommittee = await getCommittee(config.mgmtServiceUrl);
         if (!_.isEqual(new Set(Object.keys(oldCommittee)), new Set(Object.keys(newCommittee)))) {
             log("Committee has changed, (re)starting...")
-            child = restart(config.executorPath, newCommittee);
+            child = restart(config.executorPath, newCommittee, child);
         }
         oldCommittee = newCommittee;
 
@@ -97,7 +102,7 @@ async function runLoop(config) {
         if (localRev !== remoteRev) {
             console.log(`New commit found: ${remoteRev}`);
             execSync('rm -rf orbs-lambda && mv tmp orbs-lambda');
-            child = restart(config.executorPath, newCommittee);
+            child = restart(config.executorPath, newCommittee, child);
             localRev = remoteRev;
         } else execSync('rm -rf tmp');
 
