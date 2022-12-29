@@ -100,7 +100,7 @@ async function runLoop(config) {
         execSync(`git clone -b ${config.gitTag} ${REPO_URL} tmp`);
         const remoteRev = execSync('git rev-parse HEAD', {"cwd": "./tmp"}).toString().trim();
         if (localRev !== remoteRev) {
-            console.log(`New commit found: ${remoteRev}`);
+            log(`New commit found: ${remoteRev}`);
             execSync('rm -rf orbs-lambda && mv tmp orbs-lambda');
             child = restart(config.executorPath, newCommittee, child);
             localRev = remoteRev;
