@@ -222,7 +222,7 @@ export class Engine {
                 await _this._onEvent(event, lambda)
             })
             .on('changed', changed => log(changed))
-            .on('error', err => log(err))
+            .on('error', err => error(err))
             .on('connected', str => log(`Listening to event ${str}`))
     }
 

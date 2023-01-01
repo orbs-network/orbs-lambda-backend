@@ -90,16 +90,15 @@ describe("Engine", () => {
         });
     });
 
-    // describe("Test handlers", () => {
-    //
+    // describe.only("Test handlers", () => {
     //     class SignerMock {
     //         ___manual___() {
-    //             return {key: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"}
+    //             return {key: process.env.PK}
     //         }
     //     }
     //
     //     const engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock)
-    //     engine.loadModules({test: "/Users/idanatar/sources/orbs-lambda-backend/test/e2e/index.js"}); // TODO
+    //     engine.loadModules({test: `${process.cwd()}/test/e2e/index.js`});
     //
     //     it("onInterval", async () => {
     //         set(TASK_TIME_DIVISION_MIN*MS_TO_MINUTES*Object.keys(guardians).length);

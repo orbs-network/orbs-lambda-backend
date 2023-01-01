@@ -1,6 +1,5 @@
 #!/bin/bash -e
 
-echo "$NODE_VERSION"
 if [[ ! -z "$CIRCLE_TAG" ]]; then
     echo "This is a release run - Updating the .version file to indicate the correct Semver"
     echo "For this release ($CIRCLE_TAG)..."

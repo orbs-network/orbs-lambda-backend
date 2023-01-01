@@ -4,14 +4,12 @@ orbs:
   docker: circleci/docker@0.5.19
 jobs:
   build-and-release-to-staging:
-    environment:
-      NODE_VERSION: ${{ secrets.NODE_VERSION }}
     machine:
       image: ubuntu-2004:202010-01 # recommended linux image
     steps:
       - checkout
       - node/install:
-          node-version: ${{ secrets.NODE_VERSION }}
+          node-version: '16.13.1'
       - docker/install-docker
       - run: ./create-version-file.sh
       - node/install-packages

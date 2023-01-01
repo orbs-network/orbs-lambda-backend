@@ -30,8 +30,8 @@ async function runEngine(config, guardians) {
         guardians,
         new Signer(config.SignerEndpoint))
 
-    process.on('unhandledRejection', (reason, promise) => {
-        error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
+    process.on('unhandledRejection', (reason: any, promise) => {
+        error(`Unhandled Rejection: ${reason.stack}`);
     });
 
     process.on('uncaughtException', function (err, origin) {

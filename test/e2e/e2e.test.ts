@@ -17,7 +17,6 @@ describe("Test custom web3", async () => {
         constructor(rpcUrl) {
             super(rpcUrl)
         }
-
         send(payload, callback) {
             const targetObject = {};
             Error.captureStackTrace(targetObject);
@@ -27,31 +26,55 @@ describe("Test custom web3", async () => {
             if (payload.method === 'eth_sendRawTransaction')
                 return callback(null, {"jsonrpc": "2.0", "id": payload.id, "result": {}})
             if (payload.method === 'eth_getTransactionReceipt')
-                // payload.params[0] = "0x0a83ce72549badcaa91e16ef4d270833bb6444ea7db8ffe102f56f8a07cbf612" // goerli
-                payload.params[0] = "0xb73891cea3f393096f998ffaec295a03a4c78fe9bd4e8b4dc3192527bf0da5d7" // polygon
+                payload.params[0] = "0x0a83ce72549badcaa91e16ef4d270833bb6444ea7db8ffe102f56f8a07cbf612" // goerli
+                // payload.params[0] = "0xb73891cea3f393096f998ffaec295a03a4c78fe9bd4e8b4dc3192527bf0da5d7" // polygon
             return super.send(payload, callback);
+        }
+    }
+
+    class SignerMock {
+        async ___manual___() {
+            return Promise.resolve({key: process.env.PK})
         }
     }
 
     stub(CustomProviderClass, "CustomProvider").callsFake((args) => {return new MockCustomProvider(args)});
     const engine = new Engine({},
         {
-        'goerli': {"id": 5, "rpcUrl": process.env.GOERLI_PROVIDER},
-        "polygon": {id: 137, rpcUrl: process.env.POLYGON_PROVIDER}
-    }, guardians, {});
-    const web3 = await engine.initWeb3('polygon');
+        'goerli': {"id": 5, "rpcUrl": "wss://eth-goerli.g.alchemy.com/v2/_zIVzADTWU5y41UKIybGjUSbd3RAW8TL"},
+        "polygon": {id: 137, rpcUrl: "wss://eth-mainnet.g.alchemy.com/v2/Q9NrK9t6txvHcqNCochAI0MNWQ3UTHFu"}
+    }, guardians, new SignerMock());
+    const web3 = await engine.initWeb3('goerli');
+
+    it("should not include gasPrice", async function() {
+        // testing if the custom provider logic works (skipping the gas injection by web3 and using logic in engine instead)
+        let printedMessage;
+        const stdout = process.stdout.write;
+        // @ts-ignore
+        process.stdout.write = function(string) {
+            printedMessage = string;
+        };
+        await web3.eth.sendTransaction({
+            gas: 21000,
+            to: '0xd4E77f4083EdF1D245Dd267edaEf13abe6312EE4',
+            value: 0,
+            gasPrice: 999,
+        })
+        process.stdout.write = stdout;
+        expect(printedMessage).to.not.contain("gasPrice")
+    });
 
     it("sends tx with gas limit", async () => {
         await web3.eth.sendTransaction({
             gas: 21000,
-            to: '0x216FF847E6e1cf55618FAf443874450f734885e0',
+            to: '0xd4E77f4083EdF1D245Dd267edaEf13abe6312EE4',
             value: 0,
         })
     })
 
     it("sends tx without gas limit", async () => {
         await web3.eth.sendTransaction({
-            to: '0x216FF847E6e1cf55618FAf443874450f734885e0',
+            to: '0xd4E77f4083EdF1D245Dd267edaEf13abe6312EE4',
             value: 0,
         })
     })
@@ -62,7 +85,7 @@ describe("Test custom web3", async () => {
             gasPrice: 50e19,
             maxFeePerGas: 50e19,
             maxPriorityFeePerGas: 3e19,
-            to: '0x216FF847E6e1cf55618FAf443874450f734885e0',
+            to: '0xd4E77f4083EdF1D245Dd267edaEf13abe6312EE4',
             value: 0,
             type: 2
         })
@@ -74,7 +97,7 @@ describe("Test custom web3", async () => {
             gasPrice: 50e19,
             maxPriorityFeePerGas: 50e19,
             maxFeePerGas: 3e19,
-            to: '0x216FF847E6e1cf55618FAf443874450f734885e0',
+            to: '0xd4E77f4083EdF1D245Dd267edaEf13abe6312EE4',
             value: 0,
             type: 2
         })).to.eventually.be.rejected;
@@ -86,7 +109,7 @@ describe("Test custom web3", async () => {
             gasPrice: 50e19,
             maxFeePerGas: 50e19,
             maxPriorityFeePerGas: 3e19,
-            to: '0x216FF847E6e1cf55618FAf443874450f734885e0',
+            to: '0xd4E77f4083EdF1D245Dd267edaEf13abe6312EE4',
             value: 0,
             type: 0
         })).to.eventually.be.rejected;
@@ -95,7 +118,7 @@ describe("Test custom web3", async () => {
     it("sends tx with gas", async () => {
         await web3.eth.sendTransaction({
             gas: 21000,
-            to: '0x216FF847E6e1cf55618FAf443874450f734885e0',
+            to: '0xd4E77f4083EdF1D245Dd267edaEf13abe6312EE4',
             value: 0,
         })
     })
