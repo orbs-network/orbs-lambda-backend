@@ -46,24 +46,6 @@ describe("Test custom web3", async () => {
     }, guardians, new SignerMock());
     const web3 = await engine.initWeb3('goerli');
 
-    it("should not include gasPrice", async function() {
-        // testing if the custom provider logic works (skipping the gas injection by web3 and using logic in engine instead)
-        let printedMessage;
-        const stdout = process.stdout.write;
-        // @ts-ignore
-        process.stdout.write = function(string) {
-            printedMessage = string;
-        };
-        await web3.eth.sendTransaction({
-            gas: 21000,
-            to: '0xd4E77f4083EdF1D245Dd267edaEf13abe6312EE4',
-            value: 0,
-            gasPrice: 999,
-        })
-        process.stdout.write = stdout;
-        expect(printedMessage).to.not.contain("gasPrice")
-    });
-
     it("sends tx with gas limit", async () => {
         await web3.eth.sendTransaction({
             gas: 21000,

@@ -1,8 +1,8 @@
 import Web3 from "web3";
 
 export class CustomProvider extends Web3.providers.WebsocketProvider {
-    constructor(rpcUrl) {
-        super(rpcUrl)
+    constructor(rpcUrl, options) {
+        super(rpcUrl, options)
     }
 
     // Overriding low-level 'send' in order to prevent gas price injection by web3-core-method._handleTxPricing

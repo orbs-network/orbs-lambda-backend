@@ -56,11 +56,23 @@ export class Engine {
         };
     }
 
-    async initWeb3(network) {
-        const _this = this;
-        const provider = new CustomProvider(this.networksMapping[network].rpcUrl)
+    async initWeb3(network, reconnect=false) {
+        const options = reconnect ? {
+            clientConfig: {
+                keepalive: true,
+                keepaliveInterval: 60000
+            },
+            reconnect: {
+                auto: true,
+                delay: 5000,
+                maxAttempts: 5,
+                onTimeout: false
+            }
+        } : {}
+        const provider = new CustomProvider(this.networksMapping[network].rpcUrl, options)
         const web3 = new Web3(provider)
 
+        const _this = this;
         const fn = web3.eth.accounts.signTransaction;
         web3.eth.accounts.signTransaction = async function signTransaction(tx, privateKey, callback)  {
             tx.gas = tx.gas ?? await web3.eth.estimateGas(tx);
@@ -90,6 +102,11 @@ export class Engine {
                 this.options.from = account.address;
             }
         }
+
+        // @ts-ignore
+        web3.currentProvider.on('end', (error) => {log(`Web3 connection disconnected: ${error}`)})
+            .on('error', e => error(`WS Error: ${e}`));
+
         return web3;
     }
 
@@ -213,7 +230,7 @@ export class Engine {
         this.lambdas[this.currentProject].push(lambda)
 
         // separate between the web3 object that's being passed to the handler (and later disposed) and the persistent one used for event listening
-        const web3Listener = await this.initWeb3(network);
+        const web3Listener = await this.initWeb3(network, true);
         const contract = new web3Listener.eth.Contract(abi, web3Listener.utils.toChecksumAddress(contractAddress));
 
         const _this = this;

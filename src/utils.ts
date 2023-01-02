@@ -96,7 +96,7 @@ export async function calcGasPrice(chainId, feeHistory, providedPriorityFee) {
     const historyPriorityFee = feeHistory.reward[0][0];
     const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?reportwei=true&accept=75&apikey=111fbcca2093495eae4e108bbf581282`);
     if (res.status === 200) {
-        console.debug("Successfully fetched gas data from Owlracle")
+        debug("Successfully fetched gas data from Owlracle")
         const data = await res.json();
         const apiMaxFee = data.speeds[0].maxFeePerGas;
         const apiPriorityFee = data.speeds[0].maxPriorityFeePerGas;
