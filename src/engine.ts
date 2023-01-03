@@ -26,7 +26,7 @@ export class Engine {
     private readonly networksMapping: {};
     private readonly signer: any;
     private readonly selfName: string;
-    private readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number };
+    readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number };
     private readonly tasksMap: any;
     private readonly alwaysLeader: boolean;
 
@@ -136,21 +136,21 @@ export class Engine {
         this.runningTasks++;
         lambda.isRunning = true;
         const tx = `${new Date().toISOString()} ${lambda.args.network} ${lambda.projectName} ${lambda.taskName}`;
-        lambda.fn(params)
-            .then(() => {
-                log(`TX success: ${tx}`);
-                this.status.successTX.unshift(tx)
-            })
-            .catch(e => {
-                error(`Task ${lambda.fn.name} failed with error: ${e}`);
-                this.status.failTX.unshift(tx);
-            })
-            .finally(async () => {
-                lambda.isRunning = false;
-                this.runningTasks--;
-                // @ts-ignore
-                if (web3) await web3.currentProvider.disconnect();
-            });
+        try {
+            await lambda.fn(params);
+            log(`TX success: ${tx}`);
+            this.status.successTX.unshift(tx);
+        }
+        catch (e) {
+            error(`Task ${lambda.fn.name} failed with error: ${e}`);
+            this.status.failTX.unshift(tx);
+        }
+        finally {
+            lambda.isRunning = false;
+            this.runningTasks--;
+            // @ts-ignore
+            if (web3) await web3.currentProvider.disconnect();
+        }
     }
 
     async _onInterval() {
@@ -210,17 +210,21 @@ export class Engine {
             this.runningTasks++;
             lambda.isRunning = true;
             const tx = `${new Date().toISOString()} ${lambda.args.network} ${lambda.projectName} ${lambda.taskName}`;
-            fn(params).then(this.status.successTX.unshift(tx))
-                .catch(e => {
-                    error(`Task ${fn.name} failed with error: ${e}`);
-                    this.status.failTX.unshift(tx);
-                })
-                .finally(async () => {
-                    lambda.isRunning = false;
-                    this.runningTasks--;
-                    // @ts-ignore
-                    if (web3) await web3.currentProvider.disconnect();
-                });
+            try {
+                await lambda.fn(params);
+                log(`TX success: ${tx}`);
+                this.status.successTX.unshift(tx);
+            }
+            catch (e) {
+                error(`Task ${lambda.fn.name} failed with error: ${e}`);
+                this.status.failTX.unshift(tx);
+            }
+            finally {
+                lambda.isRunning = false;
+                this.runningTasks--;
+                // @ts-ignore
+                if (web3) await web3.currentProvider.disconnect();
+            }
         }
     }
 

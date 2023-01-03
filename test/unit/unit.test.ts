@@ -6,7 +6,6 @@ import {set} from 'mockdate'
 import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN} from "../../src/constants";
 import {intervalToMinutes, validateCron, getMatchingFiles, getCommittee, calcGasPrice, error} from "../../src/utils";
 import {SOURCE_API, SOURCE_FEE_HISTORY} from "../../src/constants";
-import {account, erc20s} from "@defi.org/web3-candies";
 import {useChaiBigNumber} from "@defi.org/web3-candies/dist/hardhat";
 
 useChaiBigNumber()
@@ -14,7 +13,7 @@ useChaiBigNumber()
 
 describe("Utils", () => {
     it("Should return a task list", () => {
-        expect(getMatchingFiles("./test/e2e", "index.js")).to.not.be.empty;
+        expect(getMatchingFiles(`${process.cwd()}/test/unit/`, "index.js")).to.not.be.empty;
     })
     it("Should have exactly 1 guardian as current node", async () => {
         const committee = await getCommittee("http://54.95.108.148/services/management-service/status");
@@ -90,39 +89,38 @@ describe("Engine", () => {
         });
     });
 
-    // describe.only("Test handlers", () => {
-    //     class SignerMock {
-    //         ___manual___() {
-    //             return {key: process.env.PK}
-    //         }
-    //     }
-    //
-    //     const engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock)
-    //     engine.loadModules({test: `${process.cwd()}/test/e2e/index.js`});
-    //
-    //     it("onInterval", async () => {
-    //         set(TASK_TIME_DIVISION_MIN*MS_TO_MINUTES*Object.keys(guardians).length);
-    //         await engine._onInterval()
-    //         const dai = erc20s.eth.DAI();
-    //         const owner = await account();
-    //         expect(await dai.methods.allowance(owner, owner).call()).bignumber.eq(1);
-    //         expect(engine.runningTasks).to.equal(0);
-    //     });
-    //     it("onCron", async () => {
-    //         const lambda = engine.lambdas['test'][1]
-    //         await engine._onCron(lambda)
-    //         const wbtc = erc20s.eth.WBTC();
-    //         const owner = await account();
-    //         expect(await wbtc.methods.allowance(owner, owner).call()).bignumber.eq(1);
-    //         expect(engine.runningTasks).to.equal(0);
-    //     });
-    //     it("onEvent", async () => {
-    //         const lambda = engine.lambdas['test'][2]
-    //         await engine._onEvent({transactionHash: "0x09c3be8189eb5bdd9ab559dcddb3ae09d2b394a5e96fef3566a3232e088fa3"}, lambda)
-    //         const weth = erc20s.eth.WETH();
-    //         const owner = await account();
-    //         expect(await weth.methods.allowance(owner, owner).call()).bignumber.eq(1);
-    //         expect(engine.runningTasks).to.equal(0);
-    //     });
-    // })
+    describe("Test handlers", async () => {
+        let engine;
+        beforeEach(() => {
+            engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock())
+            engine.loadModules({test: `${process.cwd()}/test/unit/index.js`});
+        })
+
+        class SignerMock {
+            async ___manual___() {
+                return Promise.resolve({key: process.env.PK})
+            }
+        }
+
+        it("onInterval", async () => {
+            set(TASK_TIME_DIVISION_MIN*MS_TO_MINUTES*Object.keys(guardians).length);
+            await engine._onInterval()
+            expect(engine.status.successTX).to.have.lengthOf(1)
+            expect(engine.runningTasks).to.equal(0);
+        });
+
+        it("onCron", async () => {
+            const lambda = engine.lambdas['test'][1]
+            await engine._onCron(lambda)
+            expect(engine.status.successTX).to.have.lengthOf(1)
+            expect(engine.runningTasks).to.equal(0);
+        });
+
+        it("onEvent", async () => {
+            const lambda = engine.lambdas['test'][2]
+            await engine._onEvent({transactionHash: "0x09c3be8189eb5bdd9ab559dcddb3ae09d2b394a5e96fef3566a3232e088fa3"}, lambda)
+            expect(engine.status.successTX).to.have.lengthOf(1)
+            expect(engine.runningTasks).to.equal(0);
+        });
+    })
 })
