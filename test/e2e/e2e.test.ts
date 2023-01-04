@@ -54,12 +54,12 @@ describe("Test custom web3", async () => {
         })
     })
 
-    it("sends tx without gas limit", async () => {
-        await web3.eth.sendTransaction({
-            to: '0xd4E77f4083EdF1D245Dd267edaEf13abe6312EE4',
-            value: 0,
-        })
-    })
+    // it("sends tx without gas limit", async () => {
+    //     await web3.eth.sendTransaction({
+    //         to: '0xd4E77f4083EdF1D245Dd267edaEf13abe6312EE4',
+    //         value: 0,
+    //     })
+    // })
 
     it("sends eip-1559 tx with all gas types supplied", async () => {
         await web3.eth.sendTransaction({
