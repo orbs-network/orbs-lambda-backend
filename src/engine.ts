@@ -145,7 +145,7 @@ export class Engine {
             projectName: lambda.projectName,
             taskName: lambda.taskName,
             lambdaType: lambda.type,
-            sender: this.status.myNode.nodeAddress,
+            sender: this.selfName
         }
         try {
             await biSend(this.config.BIUrl, bi);
