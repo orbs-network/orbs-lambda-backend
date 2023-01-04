@@ -7,6 +7,8 @@ import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN} from "../../src/constants";
 import {intervalToMinutes, validateCron, getMatchingFiles, getCommittee, calcGasPrice, error} from "../../src/utils";
 import {SOURCE_API, SOURCE_FEE_HISTORY} from "../../src/constants";
 import {useChaiBigNumber} from "@defi.org/web3-candies/dist/hardhat";
+import {stub} from "sinon"
+import * as utils from "../../src/utils"
 
 useChaiBigNumber()
 
@@ -42,23 +44,22 @@ describe("Utils", () => {
         expect(() => intervalToMinutes(pattern)).to.throw();
     });
     it("Should have api source", async () => {
-        const result = await calcGasPrice(1, {"oldestBlock": "0x7bd95f", "reward": [["0x59a"]],"baseFeePerGas": ["0x211ce","0x1d9ca"],"gasUsedRatio": [0.0770745]}, 2);
+        const result = await calcGasPrice('', 1, {"oldestBlock": "0x7bd95f", "reward": [["0x59a"]],"baseFeePerGas": ["0x211ce","0x1d9ca"],"gasUsedRatio": [0.0770745]}, 2);
         expect(result).to.include.all.keys("maxPriorityFeePerGas", "maxFeePerGas", "source");
         expect(result.source).to.equal(SOURCE_API);
     });
-    // it("Should have feeHistory source", async () => {
-    //     process.env["OWLRACLE_APIKEY"] = 'blabla'
-    //     const result = await calcGasPrice(1, {"oldestBlock": "0x7bd95f", "reward": [["0x59a"]],"baseFeePerGas": ["0x211ce","0x1d9ca"],"gasUsedRatio": [0.0770745]}, 2);
-    //     expect(result).to.include.all.keys("maxPriorityFeePerGas", "maxFeePerGas", "source");
-    //     expect(result.source).to.equal(SOURCE_FEE_HISTORY);
-    // });
+    it("Should have feeHistory source", async () => {
+        const result = await calcGasPrice('blabla', 1, {"oldestBlock": "0x7bd95f", "reward": [["0x59a"]],"baseFeePerGas": ["0x211ce","0x1d9ca"],"gasUsedRatio": [0.0770745]}, 2);
+        expect(result).to.include.all.keys("maxPriorityFeePerGas", "maxFeePerGas", "source");
+        expect(result.source).to.equal(SOURCE_FEE_HISTORY);
+    });
 
 })
 
 describe("Engine", () => {
     let engine: Engine;
     beforeEach(() => {
-        engine = new Engine({},{}, guardians, {})
+        engine = new Engine({},{}, guardians, {}, {"owlracleApikey": ""})
     })
 
     describe("Leader election", () => {
@@ -92,7 +93,7 @@ describe("Engine", () => {
     describe("Test handlers", async () => {
         let engine;
         beforeEach(() => {
-            engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock())
+            engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock(), {"owlracleApikey": ""})
             engine.loadModules({test: `${process.cwd()}/test/unit/index.js`});
         })
 
@@ -101,6 +102,8 @@ describe("Engine", () => {
                 return Promise.resolve({key: process.env.PK})
             }
         }
+
+        stub(utils, "biSend").callsFake(() => {return});
 
         it("onInterval", async () => {
             set(TASK_TIME_DIVISION_MIN*MS_TO_MINUTES*Object.keys(guardians).length);

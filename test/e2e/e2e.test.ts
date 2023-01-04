@@ -43,7 +43,7 @@ describe("Test custom web3", async () => {
         {
         'goerli': {"id": 5, "rpcUrl": "wss://eth-goerli.g.alchemy.com/v2/_zIVzADTWU5y41UKIybGjUSbd3RAW8TL"},
         "polygon": {id: 137, rpcUrl: "wss://eth-mainnet.g.alchemy.com/v2/Q9NrK9t6txvHcqNCochAI0MNWQ3UTHFu"}
-    }, guardians, new SignerMock());
+    }, guardians, new SignerMock(), {"owlracleApikey": ""});
     const web3 = await engine.initWeb3('goerli');
 
     it("sends tx with gas limit", async () => {

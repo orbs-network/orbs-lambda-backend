@@ -1,7 +1,7 @@
 import Web3 from "web3";
 import {Lambda} from "./lambda";
 import {scheduleJob} from "node-schedule";
-import {calcGasPrice, debug, error, hashStringToNumber, intervalToMinutes, log, validateCron} from "./utils";
+import {biSend, calcGasPrice, debug, error, hashStringToNumber, intervalToMinutes, log, validateCron} from "./utils";
 import {AbiItem} from "web3-utils";
 import {ContractOptions} from "web3-eth-contract";
 import {
@@ -29,8 +29,9 @@ export class Engine {
     readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number };
     private readonly tasksMap: any;
     private readonly alwaysLeader: boolean;
+    private readonly config: any;
 
-    constructor(tasksMap, networksMapping: {}, guardians: {[name: string] : {weight: number, nodeAddress: string, guardianAddress: string, ip: string, currentNode: boolean}}, signer) {
+    constructor(tasksMap, networksMapping: {}, guardians: {[name: string] : {weight: number, nodeAddress: string, guardianAddress: string, ip: string, currentNode: boolean}}, signer, config) {
         this.alwaysLeader = process.env.NODE_ENV !== 'prod';
         this.tasksMap = tasksMap;
         this.signer = signer;
@@ -42,6 +43,7 @@ export class Engine {
         this.currentProject = "";
         this.isShuttingDown = false;
         this.networksMapping = networksMapping;
+        this.config = config;
         this.status = {
             EngineLaunchTime: Date.now(),
             tasksCount: 0,
@@ -52,7 +54,7 @@ export class Engine {
             successTX: [],
             failTX: [],
             balance: {},
-            myNode: this.guardians[this.selfIndex]
+            myNode: this.guardians[this.selfName]
         };
     }
 
@@ -81,13 +83,15 @@ export class Engine {
                 delete tx.gasPrice;
                 if (!tx.maxFeePerGas) {
                     const feeHistory = await web3.eth.getFeeHistory(1, "pending", REWARDS_PERCENTILES);
-                    const gasPrice = await calcGasPrice(_this.networksMapping[network].id, feeHistory, tx.maxPriorityFeePerGas);
+                    const gasPrice = await calcGasPrice(_this.config.owlracleApikey, _this.networksMapping[network].id, feeHistory, tx.maxPriorityFeePerGas);
                     tx.maxFeePerGas = gasPrice.maxFeePerGas
                     tx.maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas
                 }
             }
             log(tx)
-            return fn.call(this, tx, privateKey, callback);
+            const singedTX = await fn.call(this, tx, privateKey, callback);
+            web3['transactionHash'] = singedTX.transactionHash;
+            return singedTX;
         }
 
         const account = web3.eth.accounts.privateKeyToAccount(`0x${(await this.signer.___manual___()).key}`);
@@ -131,21 +135,43 @@ export class Engine {
     }
 
     async _runTask(lambda, extraParams= {}) {
-        const web3 = lambda.args.network ? await this.initWeb3([lambda.args.network]) : undefined;
+        const web3 : Web3 & {transactionHash?: string} | undefined = lambda.args.network ? await this.initWeb3([lambda.args.network]) : undefined;
         const params = Object.assign({web3, guardians: this.guardians}, extraParams);
-        this.runningTasks++;
-        lambda.isRunning = true;
-        const tx = `${new Date().toISOString()} ${lambda.args.network} ${lambda.projectName} ${lambda.taskName}`;
+        let tx = `${new Date().toISOString()} ${lambda.args.network} ${lambda.projectName} ${lambda.taskName} ${lambda.type}`;
+        let bi: any = {
+            type: 'execTask',
+            nodeName: this.selfName,
+            network: lambda.args.network,
+            projectName: lambda.projectName,
+            taskName: lambda.taskName,
+            lambdaType: lambda.type,
+            sender: this.status.myNode.nodeAddress,
+        }
         try {
+            await biSend(this.config.BIUrl, bi);
+            this.runningTasks++;
+            lambda.isRunning = true;
             await lambda.fn(params);
+            if (web3 && web3.transactionHash) {
+                tx += ` ${web3.transactionHash}`;
+                bi.transactionHash = web3.transactionHash;
+            }
             log(`TX success: ${tx}`);
             this.status.successTX.unshift(tx);
+            bi.success = true;
         }
         catch (e) {
+            bi.success = false;
+            if (web3 && web3.transactionHash) {
+                tx += ` ${web3.transactionHash}`;
+                bi.transactionHash = web3.transactionHash;
+            }
             error(`Task ${lambda.fn.name} failed with error: ${e}`);
             this.status.failTX.unshift(tx);
         }
         finally {
+            bi.type = 'sentTX';
+            await biSend(this.config.BIUrl, bi)
             lambda.isRunning = false;
             this.runningTasks--;
             // @ts-ignore
@@ -201,30 +227,7 @@ export class Engine {
         if (!this.isShuttingDown && this.isLeaderHash('')) {
             const lambda = new Lambda(this.currentProject, fn.name, TYPE_ON_BLOCKS, fn, args)
             this.lambdas[this.currentProject].push(lambda);
-
-            const web3 = args.network ? await this.initWeb3([args.network]) : undefined;
-            const params = {
-                web3,
-                guardians: this.guardians,
-            }
-            this.runningTasks++;
-            lambda.isRunning = true;
-            const tx = `${new Date().toISOString()} ${lambda.args.network} ${lambda.projectName} ${lambda.taskName}`;
-            try {
-                await lambda.fn(params);
-                log(`TX success: ${tx}`);
-                this.status.successTX.unshift(tx);
-            }
-            catch (e) {
-                error(`Task ${lambda.fn.name} failed with error: ${e}`);
-                this.status.failTX.unshift(tx);
-            }
-            finally {
-                lambda.isRunning = false;
-                this.runningTasks--;
-                // @ts-ignore
-                if (web3) await web3.currentProvider.disconnect();
-            }
+            await this._runTask(lambda)
         }
     }
 

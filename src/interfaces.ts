@@ -9,7 +9,8 @@ export interface Config {
     bscProvider: string,
     goerliProvider: string,
     SignerEndpoint: string,
-    statusJsonPath: string
+    statusJsonPath: string,
+    BIUrl: string
 }
 
 export interface Status {
@@ -31,6 +32,7 @@ export interface Status {
         "successTX": string[],
         "failTX": string[],
         "balance": {},
+        myNode: {},
         "humanUptime": string,
         "lastUpdateUTC": string,
         "config": Config

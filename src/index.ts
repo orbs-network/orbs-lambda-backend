@@ -1,6 +1,6 @@
 import {ChildProcess, execSync, fork} from "child_process";
-import {debug, error, getCommittee, getCurrentVersion, getHumanUptime, log, parseArgs} from "./utils";
-import {PROCESS_TIMEOUT, REPO_URL, MESSAGE_START, MESSAGE_GET_STATUS, MESSAGE_WRITE_STATUS} from "./constants";
+import {biSend, debug, error, getCommittee, getCurrentVersion, getHumanUptime, log, parseArgs} from "./utils";
+import {PROCESS_TIMEOUT, REPO_URL, MESSAGE_START, MESSAGE_GET_STATUS, MESSAGE_WRITE_STATUS, SLEEP_DURATION} from "./constants";
 import process from "process";
 import * as _ from "lodash";
 import {existsSync, mkdirSync, writeFileSync} from "fs";
@@ -18,7 +18,8 @@ function getConfig() {
     config.executorPath = join(workdir, config.executorPath);
     return config;
 }
-function writeStatus(state: any) {
+
+async function writeStatus(state: any) {
     const now = new Date();
     state.ServiceLaunchTime = launchTime;
     const statusText = `tasksCount: ${state.tasksCount}, leaderName: ${state.leaderName}`;
@@ -44,20 +45,24 @@ function writeStatus(state: any) {
     const content = JSON.stringify(status, null, 2);
     writeFileSync(config.statusJsonPath, content);
     debug("Wrote status");
+
+    await biSend(config.BIUrl, {type: "balances", ...state.balance})
 }
 
 function restart(executorPath, committee, oldChild) {
-    // kill the current Engine instance, if exists
+    const time = new Date().getTime();
+    // kill the current Executor instance, if exists
     if (oldChild) {
-        children[oldChild.pid].killTimestamp = new Date().getTime();
+        children[oldChild.pid].killTimestamp = time;
         oldChild.kill();
     }
 
     log("Starting executor instance...");
     const child = fork(executorPath);
     if (child.pid) {
-        child.on("message", (message: {type: string, payload: any}) => {
-            if (message.type === MESSAGE_WRITE_STATUS) writeStatus(message.payload);
+        child.on("message", async (message: {type: string, payload: any}) => {
+            if (message.type === MESSAGE_WRITE_STATUS) await writeStatus(message.payload);
+            else error(`Received unsupported message: ${message}`)
         });
         child.on('exit', function (code) {
             log(`Shut down completed with exit code ${code}`);
@@ -67,7 +72,6 @@ function restart(executorPath, committee, oldChild) {
         children[child.pid] = {instance: child, killTimestamp: 0};
 
         // check for zombie processes
-        const time = new Date().getTime();
         for (const id in children) {
             if (children[id].killTimestamp && time - children[id].killTimestamp >= PROCESS_TIMEOUT ) {
                 children[id].instance.kill('SIGKILL');
@@ -92,6 +96,7 @@ async function runLoop(config) {
         let newCommittee = await getCommittee(config.mgmtServiceUrl);
         if (!_.isEqual(new Set(Object.keys(oldCommittee)), new Set(Object.keys(newCommittee)))) {
             log("Committee has changed, (re)starting...")
+            await biSend(config.BIUrl, {type: 'newCommittee', committee: Object.keys(newCommittee)})
             child = restart(config.executorPath, newCommittee, child);
         }
         oldCommittee = newCommittee;
@@ -102,12 +107,13 @@ async function runLoop(config) {
         if (localRev !== remoteRev) {
             log(`New commit found: ${remoteRev}`);
             execSync('rm -rf orbs-lambda && mv tmp orbs-lambda');
+            await biSend(config.BIUrl, {type: 'newCommit', commitHash: remoteRev})
             child = restart(config.executorPath, newCommittee, child);
             localRev = remoteRev;
         } else execSync('rm -rf tmp');
 
         child.send({type: MESSAGE_GET_STATUS});
-        await new Promise(resolve => setTimeout(resolve, 60000));
+        await new Promise(resolve => setTimeout(resolve, SLEEP_DURATION));
     }
 }
 

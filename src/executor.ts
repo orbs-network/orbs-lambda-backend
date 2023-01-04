@@ -28,7 +28,8 @@ async function runEngine(config, guardians) {
             [NETWORK_GOERLI]: {"id": 5, rpcUrl: config.goerliProvider}
         },
         guardians,
-        new Signer(config.SignerEndpoint))
+        new Signer(config.SignerEndpoint),
+        config)
 
     process.on('unhandledRejection', (reason: any, promise) => {
         error(`Unhandled Rejection: ${reason.stack}`);

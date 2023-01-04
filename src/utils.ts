@@ -91,10 +91,10 @@ export async function getCommittee(mgmtServiceUrl) {
     return guardians;
 }
 
-export async function calcGasPrice(chainId, feeHistory, providedPriorityFee) {
+export async function calcGasPrice(apiKey, chainId, feeHistory, providedPriorityFee) {
     const historyBaseFee = feeHistory.baseFeePerGas[0];
     const historyPriorityFee = feeHistory.reward[0][0];
-    const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?reportwei=true&accept=75&apikey=111fbcca2093495eae4e108bbf581282`);
+    const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?reportwei=true&accept=75&apikey=${apiKey}`);
     if (res.status === 200) {
         debug("Successfully fetched gas data from Owlracle")
         const data = await res.json();
@@ -171,4 +171,19 @@ export function getHumanUptime(uptime): string {
     // what's left is seconds
     const seconds = delta % 60;  // in theory the modulus is not required
     return `${days} days : ${hours}:${minutes}:${seconds}`;
+}
+
+export async function biSend(url: string, bi: any) {
+    bi.procName = process.env.npm_config_name;
+    bi.procVersion = process.env.npm_config_version;
+
+    const prom = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bi)
+    }).catch((e) => {
+        error('biSend: ' + e.message)
+    });
+    debug(bi)
+    return prom;
 }
