@@ -52,7 +52,7 @@ export function error(obj) {
 }
 
 export function debug(obj) {
-    // if (process.env.NODE_ENV !== "debug") return; // TODO
+    if (process.env.NODE_ENV !== "debug") return;
     const str = typeof(obj) === 'object' ? JSON.stringify(obj, undefined, 2) : obj;
     console.log(`${new Date().toISOString()} <${process.pid}> DEBUG: ${str}`)
 }
