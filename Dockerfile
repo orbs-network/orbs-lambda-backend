@@ -5,7 +5,7 @@ ENV WORKDIR /opt/orbs
 # standard working directory
 WORKDIR ${WORKDIR}
 
- RUN apk add --no-cache daemontools --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing
+RUN apk add --no-cache daemontools --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing
 RUN apk add --no-cache python3 make g++ git
 
 # install your app

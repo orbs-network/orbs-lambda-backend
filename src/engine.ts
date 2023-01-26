@@ -123,7 +123,7 @@ export class Engine {
     }
 
     isLeaderHash(str: string) {
-        const num = hashStringToNumber(str)
+        const num = hashStringToNumber(str);
         return this.alwaysLeader || Number(num.modulo(Object.keys(this.guardians).length)) === this.selfIndex;
     }
 
@@ -148,7 +148,7 @@ export class Engine {
             sender: this.selfName
         }
         try {
-            await biSend(this.config.BIUrl, bi);
+            biSend(this.config.BIUrl, bi);
             this.runningTasks++;
             lambda.isRunning = true;
             await lambda.fn(params);
@@ -171,7 +171,7 @@ export class Engine {
         }
         finally {
             bi.type = 'sentTX';
-            await biSend(this.config.BIUrl, bi)
+            biSend(this.config.BIUrl, bi)
             lambda.isRunning = false;
             this.runningTasks--;
             // @ts-ignore
@@ -216,7 +216,7 @@ export class Engine {
         const crontab = validateCron(args.cron);
         if (crontab) {
             scheduleJob(crontab, async function () {
-                await _this._onCron(lambda)
+                await _this._onCron(lambda);
             });
         }
     }
@@ -243,7 +243,7 @@ export class Engine {
         const _this = this;
         contract.events[eventName]({fromBlock: 'latest', filter})
             .on('data', async event => {
-                await _this._onEvent(event, lambda)
+                await _this._onEvent(event, lambda);
             })
             .on('changed', changed => log(changed))
             .on('error', err => error(err))

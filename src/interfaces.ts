@@ -16,6 +16,8 @@ export interface Config {
 export interface Status {
     "Status": string,
     "Timestamp": string,
+    "humanUptime": string,
+    "lastUpdateUTC": string,
     "Payload": {
         "Uptime": number,
         "MemoryUsage": {}
@@ -33,8 +35,6 @@ export interface Status {
         "failTX": string[],
         "balance": {},
         myNode: {},
-        "humanUptime": string,
-        "lastUpdateUTC": string,
         "config": Config
     },
     Error?: string
