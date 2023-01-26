@@ -1,6 +1,6 @@
 import * as path from 'path';
 import {Engine} from "./engine";
-import {error, getMatchingFiles, log} from "./utils";
+import {error, getMatchingFiles, log, debug} from "./utils";
 import {
     MESSAGE_GET_STATUS,
     MESSAGE_START,
@@ -44,13 +44,13 @@ async function runEngine(config, guardians) {
         engine.isShuttingDown = true;
         const t = new Date().getTime();
         while (engine.runningTasks) {
-            let runningTasks = "";
+            let runningTasks: string[] = [];
             for (const project in engine.lambdas) {
                 for (const lambda of engine.lambdas[project]) {
-                    if (lambda.isRunning) runningTasks += `${project}, ${lambda.taskName}\n`
+                    if (lambda.isRunning) runningTasks.push(`${project} ${lambda.taskName}`);
                 }
             }
-            log(`Still running ${engine.runningTasks} tasks:\n${runningTasks}Waiting for ${(new Date().getTime() - t) / 1000} seconds to finish...`);
+            log(`Still running ${engine.runningTasks} tasks:\n${runningTasks.join('\n')}Waiting for ${(new Date().getTime() - t) / 1000} seconds to finish...`);
             await new Promise(resolve => setTimeout(resolve, 3000));
         }
         process.exit();
@@ -67,8 +67,12 @@ process.on('message', async (message: {type: string, payload: any}) => {
             engine = await runEngine(message.payload.config, message.payload.committee);
             break;
         case MESSAGE_GET_STATUS:
-            if (engine)
-                process.send!({type: MESSAGE_WRITE_STATUS, payload: await engine.generateState()});
+            debug("RECEIVED MESSAGE_GET_STATUS")
+            if (engine) {
+                const status = await engine.generateState();
+                debug(status)
+                process.send!({type: MESSAGE_WRITE_STATUS, payload: status});
+            }
             break;
         default:
             error(`Unsupported message type: ${message.type}`)

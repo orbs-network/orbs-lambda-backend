@@ -52,7 +52,7 @@ export function error(obj) {
 }
 
 export function debug(obj) {
-    if (process.env.NODE_ENV !== "debug") return;
+    if (process.env.NODE_ENV === "prod") return;
     const str = typeof(obj) === 'object' ? JSON.stringify(obj, undefined, 2) : obj;
     console.log(`${new Date().toISOString()} <${process.pid}> DEBUG: ${str}`)
 }
@@ -176,6 +176,7 @@ export function getHumanUptime(uptime): string {
 export async function biSend(url: string, bi: any) {
     bi.procName = process.env.npm_config_name;
     bi.procVersion = process.env.npm_config_version;
+    bi.hostname = process.env.NODE_ENV ? 'debug' : process.env.HOSTNAME;
 
     const prom = await fetch(url, {
         method: 'POST',
