@@ -13,6 +13,7 @@ import Signer from "orbs-signer-client";
 import process from "process";
 
 let engine;
+let ERRORS: string[] = [];
 
 async function runEngine(config, guardians) {
     const tasksList = Object.fromEntries(
@@ -32,11 +33,15 @@ async function runEngine(config, guardians) {
         config)
 
     process.on('unhandledRejection', (reason: any, promise) => {
-        error(`Unhandled Rejection: ${reason.stack}`);
+        const errMsg = `Unhandled Rejection: ${reason.stack}`;
+        error(errMsg);
+        ERRORS.push(errMsg)
     });
 
     process.on('uncaughtException', function (err, origin) {
-        error(`Caught exception: ${err}\nException origin: ${origin}`);
+        const errMsg = `Caught exception: ${err}\nException origin: ${origin}`;
+        error(errMsg);
+        ERRORS.push(errMsg);
     });
 
     ['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach(signal => process.on(signal, async () => {
@@ -71,7 +76,11 @@ process.on('message', async (message: {type: string, payload: any}) => {
             if (engine) {
                 const status = await engine.generateState();
                 debug(status)
+                engine.status.errors = engine.status.errors.concat(ERRORS);
                 process.send!({type: MESSAGE_WRITE_STATUS, payload: status});
+                // clean up for next iteration
+                engine.status.errors = [];
+                ERRORS = [];
             }
             break;
         default:

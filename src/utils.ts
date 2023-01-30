@@ -176,7 +176,7 @@ export function getHumanUptime(uptime): string {
 export async function biSend(url: string, bi: any) {
     bi.procName = process.env.npm_config_name;
     bi.procVersion = process.env.npm_config_version;
-    bi.hostname = process.env.NODE_ENV ? 'debug' : process.env.HOSTNAME;
+    bi.hostname = process.env.NODE_ENV ?? 'debug';
 
     const prom = await fetch(url, {
         method: 'POST',

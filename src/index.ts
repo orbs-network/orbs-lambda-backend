@@ -17,7 +17,7 @@ import {Status} from "./interfaces";
 
 const children: {[id: string] : {instance: ChildProcess, killTimestamp: number} } = {}
 const workdir = process.env.WORKDIR ?? process.cwd();
-let ERROR = '';
+let ERRORS: string[] = [];
 
 function getConfig() {
     const confPath = `./config_${process.env.NODE_ENV}.json`;
@@ -28,17 +28,17 @@ function getConfig() {
     return config;
 }
 
-async function writeStatus(state: any) {
+function writeStatus(state: any = {}) {
     const now = new Date();
     state.ServiceLaunchTime = launchTime;
     const statusText = `tasksCount: ${state.tasksCount}, leaderName: ${state.leaderName}`;
     const status: Status = {
         Status: statusText,
         Timestamp: now.toISOString(),
-        humanUptime: getHumanUptime(state.ServiceLaunchTime),
+        humanUptime: state.ServiceLaunchTime ? getHumanUptime(state.ServiceLaunchTime) : "0",
         lastUpdateUTC: now.toUTCString(),
         Payload: {
-            Uptime: Math.round((Date.now() - state.ServiceLaunchTime) / 1000),
+            Uptime: state.ServiceLaunchTime ? Math.round((Date.now() - state.ServiceLaunchTime) / 1000) : 0,
             MemoryUsage: process.memoryUsage(),
             Version: {
                 Semantic: getCurrentVersion(workdir),
@@ -47,14 +47,15 @@ async function writeStatus(state: any) {
             config
         }
     }
-    if (state.error)
-        status.Error = state.error;
+    const errors: string[] = state.errors ? state.errors.concat(ERRORS): ERRORS;
+    ERRORS = [];
+    if (errors.length)
+        status.Error = errors.join('\n');
 
     if (!existsSync(dirname(config.statusJsonPath))) mkdirSync(dirname(config.statusJsonPath), { recursive: true });
     const content = JSON.stringify(status, null, 2);
     writeFileSync(config.statusJsonPath, content);
     debug(`Wrote status\n${content}`);
-
     biSend(config.BIUrl, {type: "balances", ...state.balance})
 }
 
@@ -69,17 +70,17 @@ function restart(executorPath, committee, oldChild) {
     log("Starting executor instance...");
     const child = fork(executorPath);
     if (child.pid) {
-        child.on("message", async (message: {type: string, payload: any}) => {
+        child.on("message", async (message: { type: string, payload: any }) => {
             switch (message.type) {
                 case MESSAGE_WRITE_STATUS:
-                    await writeStatus(message.payload);
+                    writeStatus(message.payload);
                     break;
                 default:
                     error(`Unsupported message type: ${message.type}`)
             }
         });
         child.on('exit', async function (code) {
-            biSend(config.BIUrl, {type: 'shutDown', pid: child.pid})
+            biSend(config.BIUrl, {type: 'shutDown', pid: child.pid, code})
             log(`Shut down completed with exit code ${code}`);
             delete children[child.pid!];
         })
@@ -88,16 +89,14 @@ function restart(executorPath, committee, oldChild) {
 
         // check for zombie processes
         for (const id in children) {
-            if (children[id].killTimestamp && time - children[id].killTimestamp >= PROCESS_TIMEOUT ) {
-                log(`Process ${id} is running for more than ${PROCESS_TIMEOUT/MS_TO_MINUTES} minutes. Killing...`);
+            if (children[id].killTimestamp && time - children[id].killTimestamp >= PROCESS_TIMEOUT) {
+                log(`Process ${id} is running for more than ${PROCESS_TIMEOUT / MS_TO_MINUTES} minutes. Killing...`);
                 children[id].instance.kill('SIGKILL');
             }
         }
         return child;
     }
-    const errMsg = "Failed to fork a new subprocess";
-    biSend(config.BIUrl, {type: "error", errMsg});
-    throw new Error(errMsg);
+    throw new Error("Failed to fork a new subprocess");
 }
 
 async function runLoop(config) {
@@ -119,28 +118,45 @@ async function runLoop(config) {
         }
         oldCommittee = newCommittee;
 
-        // Check for changes in Git
-        execSync(`git clone -b ${config.gitTag} ${REPO_URL} tmp`);
-        const remoteRev = execSync('git rev-parse HEAD', {"cwd": "./tmp"}).toString().trim();
-        if (localRev !== remoteRev) {
-            log(`New commit found: ${remoteRev}`);
-            execSync('rm -rf orbs-lambda && mv tmp orbs-lambda');
-            biSend(config.BIUrl, {type: 'newCommit', commitHash: remoteRev})
-            child = restart(config.executorPath, newCommittee, child);
-            localRev = remoteRev;
-        } else execSync('rm -rf tmp');
+        try {
+            // Check for changes in Git
+            execSync(`git clone -b ${config.gitTag} ${REPO_URL} tmp`);
+            const remoteRev = execSync('git rev-parse HEAD', {"cwd": "./tmp"}).toString().trim();
+            if (localRev !== remoteRev) {
+                log(`New commit found: ${remoteRev}`);
+                execSync('rm -rf orbs-lambda && mv tmp orbs-lambda');
+                biSend(config.BIUrl, {type: 'newCommit', commitHash: remoteRev})
+                child = restart(config.executorPath, newCommittee, child);
+                localRev = remoteRev;
+            } else execSync('rm -rf tmp');
+        }
+        catch (e) {
+            handleError(`Failed to check for git changes: ${e}`);
+        }
 
         child.send({type: MESSAGE_GET_STATUS});
         await new Promise(resolve => setTimeout(resolve, SLEEP_DURATION));
     }
 }
 
+function handleError(errMsg, exit= false) {
+    error(errMsg);
+    biSend(config.BIUrl, {type: "error", errMsg});
+    ERRORS.push(errMsg);
+    if (exit) {
+        writeStatus()
+        process.exit(128);
+    }
+}
+
+process.on('uncaughtException', function (err, origin) {
+    handleError(`Caught exception: ${err}\nException origin: ${origin}`, true);
+});
+
 const launchTime = Date.now();
 log(`Service Lambda started. env = ${process.env.NODE_ENV}`);
 const config = getConfig()
-debug(`Input config: '${JSON.stringify(config)}'.`);
+debug(`Input config: '${JSON.stringify(config)}'`);
 runLoop(config).catch((err) => {
-    log('Exception thrown from runLoop, shutting down:');
-    error(err.stack);
-    process.exit(128);
+    handleError(`Exception thrown from runLoop, shutting down: ${err.stack}`, true);
 });

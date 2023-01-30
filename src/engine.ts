@@ -26,7 +26,7 @@ export class Engine {
     private readonly networksMapping: {};
     private readonly signer: any;
     private readonly selfName: string;
-    readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number };
+    readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number, errors: string[] };
     private readonly tasksMap: any;
     private readonly alwaysLeader: boolean;
     private readonly config: any;
@@ -54,7 +54,8 @@ export class Engine {
             successTX: [],
             failTX: [],
             balance: {},
-            myNode: this.guardians[this.selfName]
+            myNode: this.guardians[this.selfName],
+            errors: []
         };
     }
 
@@ -166,7 +167,9 @@ export class Engine {
                 tx += ` ${web3.transactionHash}`;
                 bi.transactionHash = web3.transactionHash;
             }
-            error(`Task ${lambda.fn.name} failed with error: ${e}`);
+            const errMsg = `Task ${lambda.fn.name} failed with error: ${e}`
+            error(errMsg);
+            this.status.errors.push(errMsg);
             this.status.failTX.unshift(tx);
         }
         finally {
@@ -246,7 +249,10 @@ export class Engine {
                 await _this._onEvent(event, lambda);
             })
             .on('changed', changed => log(changed))
-            .on('error', err => error(err))
+            .on('error', err => {
+                error(err);
+                _this.status.errors.push(err);
+            })
             .on('connected', str => log(`Listening to event ${str}`))
     }
 
