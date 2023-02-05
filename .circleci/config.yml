@@ -15,7 +15,7 @@ jobs:
       - node/install-packages
       - run: npm install --no-save tap-xunit
 #      - run: npm test
-      - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - run: touch /home/circleci/.docker/buildx/instances/default
       - run: ./docker-build.sh
       - run: ./.circleci/release-to-staging.sh
 
