@@ -15,7 +15,6 @@ jobs:
       - node/install-packages
       - run: npm install --no-save tap-xunit
 #      - run: npm test
-      - run: touch /home/circleci/.docker/buildx/instances/default
       - run: ./docker-build.sh
       - run: ./.circleci/release-to-staging.sh
 
