@@ -1,7 +1,6 @@
 version: 2.1
 orbs:
   node: circleci/node@4.9.0
-  docker: circleci/docker@0.6.20
 jobs:
   build-and-release-to-staging:
     machine:
@@ -10,7 +9,8 @@ jobs:
       - checkout
       - node/install:
           node-version: '16.13.1'
-      - docker/install-docker
+      - setup_remote_docker:
+          version: 20.10.11
       - run: ./create-version-file.sh
       - node/install-packages
       - run: npm install --no-save tap-xunit
