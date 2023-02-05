@@ -1,8 +1,7 @@
 version: 2.1
 orbs:
   node: circleci/node@4.9.0
-  docker: circleci/docker@2.2.0
-
+  docker: circleci/docker@0.5.19
 jobs:
   build-and-release-to-staging:
     machine:
@@ -16,6 +15,7 @@ jobs:
       - node/install-packages
       - run: npm install --no-save tap-xunit
       - run: npm test
+      - run: docker buildx create --use
       - run: ./docker-build.sh
       - run: ./.circleci/release-to-staging.sh
 
