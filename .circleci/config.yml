@@ -1,7 +1,7 @@
 version: 2.1
 orbs:
   node: circleci/node@4.9.0
-  docker: circleci/docker@0.5.19
+  docker: circleci/docker@0.5.20
 jobs:
   build-and-release-to-staging:
     machine:
