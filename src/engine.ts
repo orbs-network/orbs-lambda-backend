@@ -259,7 +259,7 @@ export class Engine {
     async getBalance(network) {
         const web3 = await this.initWeb3(network);
         const balance = await web3.eth.getBalance(web3.eth.accounts.wallet[0].address);
-        return parseInt(balance);
+        return parseInt(balance)/10**18;
     }
 
     async generateState() {

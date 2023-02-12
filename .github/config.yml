@@ -1,0 +1,34 @@
+name: "lambda-backend-deployer"
+
+on:
+  push:
+    branches:
+      - '**'
+  release:
+    types: [published]
+
+jobs:
+  build-and-release-to-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - name: setup-docker
+        uses: docker-practice/actions-setup-docker@1.0.11
+      - run: ./create-version-file.sh
+      - name: Run npm install
+        run: npm install
+      - run: npm test
+      - run: ./docker-build.sh
+      - name: release-to-docker-hub-staging
+        env:
+          DOCKER_HUB_IMAGE_PATH: orbsnetworkstaging/vm-lambda
+          DOCKER_HUB_LOGIN: ${{ secrets.DOCKER_HUB_STAGING_LOGIN }}
+          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_STAGING_PASSWORD }}
+        run: ./.github/release-to-staging.sh

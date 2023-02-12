@@ -173,12 +173,12 @@ export function getHumanUptime(uptime): string {
     return `${days} days : ${hours}:${minutes}:${seconds}`;
 }
 
-export async function biSend(url: string, bi: any) {
+export function biSend(url: string, bi: any) {
     bi.procName = process.env.npm_config_name;
     bi.procVersion = process.env.npm_config_version;
     bi.hostname = process.env.NODE_ENV ?? 'debug';
 
-    const prom = await fetch(url, {
+    fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bi)
@@ -186,5 +186,4 @@ export async function biSend(url: string, bi: any) {
         error('biSend: ' + e.message)
     });
     debug(bi)
-    return prom;
 }
