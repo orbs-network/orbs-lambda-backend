@@ -23,11 +23,12 @@ jobs:
         uses: docker-practice/actions-setup-docker@1.0.11
       - run: ./create-version-file.sh
       - name: Run npm install
+        run: npm install
+      - name: Run tests
         env:
           NETWORK_URL_ETH: ${{ secrets.NETWORK_URL_ETH }}
           PK: ${{ secrets.PK }}
-        run: npm install
-      - run: npm test
+        run: npm test
       - run: ./docker-build.sh
       - name: release-to-docker-hub-staging
         env:
