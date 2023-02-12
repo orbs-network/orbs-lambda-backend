@@ -108,12 +108,12 @@ async function runLoop(config) {
 
     let child;
     while (true) {
-        debug("Checking for changes...")
+        debug("Checking for changes...");
         // Check for changes in committee
         let newCommittee = await getCommittee(config.mgmtServiceUrl);
         if (!_.isEqual(new Set(Object.keys(oldCommittee)), new Set(Object.keys(newCommittee)))) {
-            log("Committee has changed, (re)starting...")
-            biSend(config.BIUrl, {type: 'newCommittee', committee: Object.keys(newCommittee)})
+            log("Committee has changed, (re)starting...");
+            biSend(config.BIUrl, {type: 'newCommittee', committee: Object.keys(newCommittee)});
             child = restart(config.executorPath, newCommittee, child);
         }
         oldCommittee = newCommittee;
