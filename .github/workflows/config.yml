@@ -23,6 +23,9 @@ jobs:
         uses: docker-practice/actions-setup-docker@1.0.11
       - run: ./create-version-file.sh
       - name: Run npm install
+        env:
+          NETWORK_URL_ETH: ${{ secrets.NETWORK_URL_ETH }}
+          PK: ${{ secrets.PK }}
         run: npm install
       - run: npm test
       - run: ./docker-build.sh
@@ -31,6 +34,4 @@ jobs:
           DOCKER_HUB_IMAGE_PATH: orbsnetworkstaging/vm-lambda
           DOCKER_HUB_LOGIN: ${{ secrets.DOCKER_HUB_STAGING_LOGIN }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_STAGING_PASSWORD }}
-          NETWORK_URL_ETH: ${{ secrets.NETWORK_URL_ETH }}
-          PK: ${{ secrets.PK }}
         run: ./.github/release-to-staging.sh
