@@ -4,16 +4,7 @@ import {scheduleJob} from "node-schedule";
 import {biSend, calcGasPrice, debug, error, hashStringToNumber, intervalToMinutes, log, validateCron} from "./utils";
 import {AbiItem} from "web3-utils";
 import {ContractOptions} from "web3-eth-contract";
-import {
-    MS_TO_MINUTES,
-    TASK_TIME_DIVISION_MIN,
-    REWARDS_PERCENTILES,
-    MAX_LAST_TX,
-    TYPE_ON_CRON,
-    TYPE_ON_INTERVAL,
-    TYPE_ON_BLOCKS,
-    TYPE_ON_EVENT
-} from './constants'
+import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN, REWARDS_PERCENTILES, MAX_LAST_TX, TYPE_ON_CRON, TYPE_ON_INTERVAL, TYPE_ON_BLOCKS, TYPE_ON_EVENT} from './constants';
 import {CustomProvider} from "./customProvider";
 import process from "process";
 
