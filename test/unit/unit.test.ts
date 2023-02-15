@@ -4,11 +4,12 @@ import {Engine} from "../../src/engine";
 import {guardians} from "../fixtures";
 import {set} from 'mockdate'
 import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN} from "../../src/constants";
-import {intervalToMinutes, validateCron, getMatchingFiles, getCommittee, calcGasPrice, error} from "../../src/utils";
+import {intervalToMinutes, validateCron, getMatchingFiles, getCommittee, calcGasPrice, getCurrentGuardian} from "../../src/utils";
 import {SOURCE_API, SOURCE_FEE_HISTORY} from "../../src/constants";
 import {useChaiBigNumber} from "@defi.org/web3-candies/dist/hardhat";
 import {stub} from "sinon"
 import * as utils from "../../src/utils"
+import process from "process";
 
 useChaiBigNumber()
 
@@ -57,10 +58,16 @@ describe("Utils", () => {
 })
 
 describe("Engine", () => {
+    process.env['NODENAME'] = getCurrentGuardian(guardians) ?? process.env.NODE_ENV ?? 'debug';
     let engine: Engine;
     beforeEach(() => {
         engine = new Engine({},{}, guardians, {}, {"owlracleApikey": ""})
     })
+
+    it("Should set guardian name", () => {
+        expect(engine.selfName).to.equal("NEOPLY");
+        expect(engine.status.myNode).to.equal(guardians["NEOPLY"]);
+    });
 
     describe("Leader election", () => {
         describe("Time based leader", () => {

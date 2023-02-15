@@ -15,6 +15,7 @@ import {
     TYPE_ON_EVENT
 } from './constants'
 import {CustomProvider} from "./customProvider";
+import process from "process";
 
 export class Engine {
     private readonly guardians: {};
@@ -25,7 +26,7 @@ export class Engine {
     public isShuttingDown: boolean;
     private readonly networksMapping: {};
     private readonly signer: any;
-    private readonly selfName: string;
+    selfName: string;
     readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number, errors: string[] };
     private readonly tasksMap: any;
     private readonly alwaysLeader: boolean;
@@ -37,8 +38,8 @@ export class Engine {
         this.signer = signer;
         this.guardians = guardians;
         this.runningTasks = 0;
-        this.selfName = Object.keys(guardians).find(key => guardians[key].currentNode === true)!
-        this.selfIndex = Object.keys(guardians).indexOf(this.selfName)
+        this.selfName = process.env['NODENAME']!;
+        this.selfIndex = Object.keys(guardians).indexOf(this.selfName);
         this.lambdas = {};
         this.currentProject = "";
         this.isShuttingDown = false;

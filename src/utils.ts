@@ -173,10 +173,14 @@ export function getHumanUptime(uptime): string {
     return `${days} days : ${hours}:${minutes}:${seconds}`;
 }
 
+export function getCurrentGuardian(guardians) {
+    return Object.keys(guardians).find(key => guardians[key].currentNode === true);
+}
+
 export function biSend(url: string, bi: any) {
     bi.procName = process.env.npm_config_name;
     bi.procVersion = process.env.npm_config_version;
-    bi.hostname = process.env.NODE_ENV ?? 'debug';
+    bi.hostname = process.env.NODENAME;
 
     fetch(url, {
         method: 'POST',

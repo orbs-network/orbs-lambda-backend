@@ -1,5 +1,5 @@
 import {ChildProcess, execSync, fork} from "child_process";
-import {biSend, debug, error, getCommittee, getCurrentVersion, getHumanUptime, log, parseArgs} from "./utils";
+import {biSend, debug, error, getCommittee, getCurrentVersion, getHumanUptime, log, parseArgs, getCurrentGuardian} from "./utils";
 import {
     PROCESS_TIMEOUT,
     REPO_URL,
@@ -114,6 +114,7 @@ async function runLoop(config) {
         if (!_.isEqual(new Set(Object.keys(oldCommittee)), new Set(Object.keys(newCommittee)))) {
             log("Committee has changed, (re)starting...");
             biSend(config.BIUrl, {type: 'newCommittee', committee: Object.keys(newCommittee)});
+            process.env['NODENAME'] = getCurrentGuardian(newCommittee) ?? process.env.NODE_ENV ?? 'debug';
             child = restart(config.executorPath, newCommittee, child);
         }
         oldCommittee = newCommittee;
