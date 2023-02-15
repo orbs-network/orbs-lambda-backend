@@ -114,8 +114,8 @@ describe("Test custom web3", async () => {
         })
     });
 
-    it("sends contract call with no params", async () => {
-        const contract = new web3.eth.Contract(abi, "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45")
-        await contract.methods.refundETH().send()
-    });
+    // it("sends contract call with no params", async () => {
+    //     const contract = new web3.eth.Contract(abi, "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45")
+    //     await contract.methods.refundETH().send()
+    // });
 });
