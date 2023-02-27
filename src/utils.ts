@@ -51,6 +51,13 @@ export function error(obj) {
     console.error(`${new Date().toISOString()} <${process.pid}> ERROR: ${str}`)
 }
 
+export function debug(obj) {
+    if (process.env.NODE_ENV === "prod") return;
+    const str = typeof(obj) === 'object' ? JSON.stringify(obj, undefined, 2) : obj;
+    console.log(`${new Date().toISOString()} <${process.pid}> DEBUG: ${str}`)
+}
+
+
 export function getMatchingFiles(dirPath: string, projectsPattern: string, arrayOfFiles: string[] = []) {
     const files = readdirSync(dirPath)
     arrayOfFiles = arrayOfFiles || []
@@ -58,7 +65,7 @@ export function getMatchingFiles(dirPath: string, projectsPattern: string, array
         if (statSync(dirPath + "/" + file).isDirectory()) {
             arrayOfFiles = getMatchingFiles(dirPath + "/" + file, projectsPattern, arrayOfFiles)
         } else {
-            const fileName = path.join(__dirname, dirPath, "/", file);
+            const fileName = path.join(dirPath, "/", file);
             if (fileName.match(projectsPattern)) arrayOfFiles.push(fileName)
         }
     })
@@ -84,12 +91,12 @@ export async function getCommittee(mgmtServiceUrl) {
     return guardians;
 }
 
-export async function calcGasPrice(chainId, feeHistory, providedPriorityFee) {
+export async function calcGasPrice(apiKey, chainId, feeHistory, providedPriorityFee) {
     const historyBaseFee = feeHistory.baseFeePerGas[0];
     const historyPriorityFee = feeHistory.reward[0][0];
-    const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?reportwei=true&accept=75&apikey=111fbcca2093495eae4e108bbf581282`);
+    const res = await fetch(`https://api.owlracle.info/v3/${chainId}/gas?reportwei=true&accept=75&apikey=${apiKey}`);
     if (res.status === 200) {
-        console.debug("Successfully fetched gas data from Owlracle")
+        debug("Successfully fetched gas data from Owlracle")
         const data = await res.json();
         const apiMaxFee = data.speeds[0].maxFeePerGas;
         const apiPriorityFee = data.speeds[0].maxPriorityFeePerGas;
@@ -108,7 +115,11 @@ export async function calcGasPrice(chainId, feeHistory, providedPriorityFee) {
 }
 
 export function parseArgs(argv: string[], confPath): Config {
-    let res: Config;
+    // management service passes the default configs as a cli arg ("--config config.json --config keys.json")
+    // need to parse those and add our custom config to them
+
+    let res;
+    const customConfig : Config = JSON.parse(readFileSync(confPath).toString());
 
     // parse command line args
     const args = yargs(argv)
@@ -122,10 +133,11 @@ export function parseArgs(argv: string[], confPath): Config {
         .exitProcess(false)
         .parse();
 
-    // read input config JSON files
+    // read input config JSON files coming from argv + custom config
     try {
         res = Object.assign(
             {},
+            customConfig,
             ...args.config.map((configPath) => JSON.parse(readFileSync(configPath).toString()))
         );
     } catch (err) {
@@ -135,9 +147,9 @@ export function parseArgs(argv: string[], confPath): Config {
     return res;
 }
 
-export function getCurrentVersion() {
+export function getCurrentVersion(workdir) {
   try {
-    return readFileSync('../.version').toString().trim();
+    return readFileSync(`${workdir}/.version`).toString().trim();
   } catch (err) {
     error(`Could not find version: ${err}`);
   }
@@ -159,4 +171,23 @@ export function getHumanUptime(uptime): string {
     // what's left is seconds
     const seconds = delta % 60;  // in theory the modulus is not required
     return `${days} days : ${hours}:${minutes}:${seconds}`;
+}
+
+export function getCurrentGuardian(guardians) {
+    return Object.keys(guardians).find(key => guardians[key].currentNode === true);
+}
+
+export function biSend(url: string, bi: any) {
+    bi.procName = process.env.npm_config_name;
+    bi.procVersion = process.env.npm_config_version;
+    bi.hostname = process.env.NODENAME;
+
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bi)
+    }).catch((e) => {
+        error('biSend: ' + e.message)
+    });
+    debug(bi)
 }

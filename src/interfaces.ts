@@ -8,13 +8,16 @@ export interface Config {
     ethereumProvider: string,
     bscProvider: string,
     goerliProvider: string,
-    signerUrl: string,
-    statusJsonPath: string
+    SignerEndpoint: string,
+    statusJsonPath: string,
+    BIUrl: string
 }
 
 export interface Status {
     "Status": string,
     "Timestamp": string,
+    "humanUptime": string,
+    "lastUpdateUTC": string,
     "Payload": {
         "Uptime": number,
         "MemoryUsage": {}
@@ -31,8 +34,7 @@ export interface Status {
         "successTX": string[],
         "failTX": string[],
         "balance": {},
-        "humanUptime": string,
-        "lastUpdateUTC": string,
+        myNode: {},
         "config": Config
     },
     Error?: string

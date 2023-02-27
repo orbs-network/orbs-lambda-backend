@@ -1,20 +1,12 @@
 import Web3 from "web3";
 import {Lambda} from "./lambda";
 import {scheduleJob} from "node-schedule";
-import {calcGasPrice, error, hashStringToNumber, intervalToMinutes, log, validateCron} from "./utils";
+import {biSend, calcGasPrice, debug, error, hashStringToNumber, intervalToMinutes, log, validateCron} from "./utils";
 import {AbiItem} from "web3-utils";
 import {ContractOptions} from "web3-eth-contract";
-import {
-    MS_TO_MINUTES,
-    TASK_TIME_DIVISION_MIN,
-    REWARDS_PERCENTILES,
-    MAX_LAST_TX,
-    TYPE_ON_CRON,
-    TYPE_ON_INTERVAL,
-    TYPE_ON_BLOCKS,
-    TYPE_ON_EVENT
-} from './constants'
+import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN, REWARDS_PERCENTILES, MAX_LAST_TX, TYPE_ON_CRON, TYPE_ON_INTERVAL, TYPE_ON_BLOCKS, TYPE_ON_EVENT} from './constants';
 import {CustomProvider} from "./customProvider";
+import process from "process";
 
 export class Engine {
     private readonly guardians: {};
@@ -25,23 +17,25 @@ export class Engine {
     public isShuttingDown: boolean;
     private readonly networksMapping: {};
     private readonly signer: any;
-    private readonly selfName: string;
-    private readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number };
+    selfName: string;
+    readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number, errors: string[] };
     private readonly tasksMap: any;
     private readonly alwaysLeader: boolean;
+    private readonly config: any;
 
-    constructor(tasksMap, networksMapping: {}, guardians: {[name: string] : {weight: number, nodeAddress: string, guardianAddress: string, ip: string, currentNode: boolean}}, signer) {
+    constructor(tasksMap, networksMapping: {}, guardians: {[name: string] : {weight: number, nodeAddress: string, guardianAddress: string, ip: string, currentNode: boolean}}, signer, config) {
         this.alwaysLeader = process.env.NODE_ENV !== 'prod';
         this.tasksMap = tasksMap;
         this.signer = signer;
         this.guardians = guardians;
         this.runningTasks = 0;
-        this.selfName = Object.keys(guardians).find(key => guardians[key].currentNode === true)!
-        this.selfIndex = Object.keys(guardians).indexOf(this.selfName)
+        this.selfName = process.env['NODENAME']!;
+        this.selfIndex = Object.keys(guardians).indexOf(this.selfName);
         this.lambdas = {};
         this.currentProject = "";
         this.isShuttingDown = false;
         this.networksMapping = networksMapping;
+        this.config = config;
         this.status = {
             EngineLaunchTime: Date.now(),
             tasksCount: 0,
@@ -52,15 +46,28 @@ export class Engine {
             successTX: [],
             failTX: [],
             balance: {},
-            myNode: this.guardians[this.selfIndex]
+            myNode: this.guardians[this.selfName],
+            errors: []
         };
     }
 
-    async initWeb3(network) {
-        const _this = this;
-        const provider = new CustomProvider(this.networksMapping[network].rpcUrl)
+    async initWeb3(network, reconnect=false) {
+        const options = reconnect ? {
+            clientConfig: {
+                keepalive: true,
+                keepaliveInterval: 60000
+            },
+            reconnect: {
+                auto: true,
+                delay: 5000,
+                maxAttempts: 5,
+                onTimeout: false
+            }
+        } : {}
+        const provider = new CustomProvider(this.networksMapping[network].rpcUrl, options)
         const web3 = new Web3(provider)
 
+        const _this = this;
         const fn = web3.eth.accounts.signTransaction;
         web3.eth.accounts.signTransaction = async function signTransaction(tx, privateKey, callback)  {
             tx.gas = tx.gas ?? await web3.eth.estimateGas(tx);
@@ -69,13 +76,15 @@ export class Engine {
                 delete tx.gasPrice;
                 if (!tx.maxFeePerGas) {
                     const feeHistory = await web3.eth.getFeeHistory(1, "pending", REWARDS_PERCENTILES);
-                    const gasPrice = await calcGasPrice(_this.networksMapping[network].id, feeHistory, tx.maxPriorityFeePerGas);
+                    const gasPrice = await calcGasPrice(_this.config.owlracleApikey, _this.networksMapping[network].id, feeHistory, tx.maxPriorityFeePerGas);
                     tx.maxFeePerGas = gasPrice.maxFeePerGas
                     tx.maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas
                 }
             }
             log(tx)
-            return fn.call(this, tx, privateKey, callback);
+            const singedTX = await fn.call(this, tx, privateKey, callback);
+            web3['transactionHash'] = singedTX.transactionHash;
+            return singedTX;
         }
 
         const account = web3.eth.accounts.privateKeyToAccount(`0x${(await this.signer.___manual___()).key}`);
@@ -90,6 +99,11 @@ export class Engine {
                 this.options.from = account.address;
             }
         }
+
+        // @ts-ignore
+        web3.currentProvider.on('end', (error) => {log(`Web3 connection disconnected: ${error}`)})
+            .on('error', e => error(`WS Error: ${e}`));
+
         return web3;
     }
 
@@ -102,7 +116,7 @@ export class Engine {
     }
 
     isLeaderHash(str: string) {
-        const num = hashStringToNumber(str)
+        const num = hashStringToNumber(str);
         return this.alwaysLeader || Number(num.modulo(Object.keys(this.guardians).length)) === this.selfIndex;
     }
 
@@ -114,26 +128,50 @@ export class Engine {
     }
 
     async _runTask(lambda, extraParams= {}) {
-        const web3 = lambda.args.network ? await this.initWeb3([lambda.args.network]) : undefined;
+        const web3 : Web3 & {transactionHash?: string} | undefined = lambda.args.network ? await this.initWeb3([lambda.args.network]) : undefined;
         const params = Object.assign({web3, guardians: this.guardians}, extraParams);
-        this.runningTasks++;
-        lambda.isRunning = true;
-        const tx = `${new Date().toISOString()} ${lambda.args.network} ${lambda.projectName} ${lambda.taskName}`;
-        lambda.fn(params)
-            .then(() => {
-                log(`TX success: ${tx}`);
-                this.status.successTX.unshift(tx)
-            })
-            .catch(e => {
-                error(`Task ${lambda.fn.name} failed with error: ${e}`);
-                this.status.failTX.unshift(tx);
-            })
-            .finally(async () => {
-                lambda.isRunning = false;
-                this.runningTasks--;
-                // @ts-ignore
-                if (web3) await web3.currentProvider.disconnect();
-            });
+        let tx = `${new Date().toISOString()} ${lambda.args.network} ${lambda.projectName} ${lambda.taskName} ${lambda.type}`;
+        let bi: any = {
+            type: 'execTask',
+            nodeName: this.selfName,
+            network: lambda.args.network,
+            projectName: lambda.projectName,
+            taskName: lambda.taskName,
+            lambdaType: lambda.type,
+            sender: this.selfName
+        }
+        try {
+            biSend(this.config.BIUrl, bi);
+            this.runningTasks++;
+            lambda.isRunning = true;
+            await lambda.fn(params);
+            if (web3 && web3.transactionHash) {
+                tx += ` ${web3.transactionHash}`;
+                bi.transactionHash = web3.transactionHash;
+            }
+            log(`TX success: ${tx}`);
+            this.status.successTX.unshift(tx);
+            bi.success = true;
+        }
+        catch (e) {
+            bi.success = false;
+            if (web3 && web3.transactionHash) {
+                tx += ` ${web3.transactionHash}`;
+                bi.transactionHash = web3.transactionHash;
+            }
+            const errMsg = `Task ${lambda.fn.name} failed with error: ${e}`
+            error(errMsg);
+            this.status.errors.push(errMsg);
+            this.status.failTX.unshift(tx);
+        }
+        finally {
+            bi.type = 'sentTX';
+            biSend(this.config.BIUrl, bi)
+            lambda.isRunning = false;
+            this.runningTasks--;
+            // @ts-ignore
+            if (web3) await web3.currentProvider.disconnect();
+        }
     }
 
     async _onInterval() {
@@ -173,7 +211,7 @@ export class Engine {
         const crontab = validateCron(args.cron);
         if (crontab) {
             scheduleJob(crontab, async function () {
-                await _this._onCron(lambda)
+                await _this._onCron(lambda);
             });
         }
     }
@@ -184,26 +222,7 @@ export class Engine {
         if (!this.isShuttingDown && this.isLeaderHash('')) {
             const lambda = new Lambda(this.currentProject, fn.name, TYPE_ON_BLOCKS, fn, args)
             this.lambdas[this.currentProject].push(lambda);
-
-            const web3 = args.network ? await this.initWeb3([args.network]) : undefined;
-            const params = {
-                web3,
-                guardians: this.guardians,
-            }
-            this.runningTasks++;
-            lambda.isRunning = true;
-            const tx = `${new Date().toISOString()} ${lambda.args.network} ${lambda.projectName} ${lambda.taskName}`;
-            fn(params).then(this.status.successTX.unshift(tx))
-                .catch(e => {
-                    error(`Task ${fn.name} failed with error: ${e}`);
-                    this.status.failTX.unshift(tx);
-                })
-                .finally(async () => {
-                    lambda.isRunning = false;
-                    this.runningTasks--;
-                    // @ts-ignore
-                    if (web3) await web3.currentProvider.disconnect();
-                });
+            await this._runTask(lambda)
         }
     }
 
@@ -213,22 +232,26 @@ export class Engine {
         this.lambdas[this.currentProject].push(lambda)
 
         // separate between the web3 object that's being passed to the handler (and later disposed) and the persistent one used for event listening
-        const web3Listener = await this.initWeb3(network);
+        const web3Listener = await this.initWeb3(network, true);
         const contract = new web3Listener.eth.Contract(abi, web3Listener.utils.toChecksumAddress(contractAddress));
 
         const _this = this;
         contract.events[eventName]({fromBlock: 'latest', filter})
             .on('data', async event => {
-                await _this._onEvent(event, lambda)
+                await _this._onEvent(event, lambda);
             })
             .on('changed', changed => log(changed))
-            .on('error', err => log(err))
+            .on('error', err => {
+                error(err);
+                _this.status.errors.push(err);
+            })
             .on('connected', str => log(`Listening to event ${str}`))
     }
 
     async getBalance(network) {
         const web3 = await this.initWeb3(network);
-        return await web3.eth.getBalance(web3.eth.accounts.wallet[0].address);
+        const balance = await web3.eth.getBalance(web3.eth.accounts.wallet[0].address);
+        return parseInt(balance)/10**18;
     }
 
     async generateState() {
@@ -255,7 +278,7 @@ export class Engine {
             const module = require(tasksMap[project]);
             module.register(this);
         }
-        // log(this.lambdas)
+        debug(this.lambdas)
     }
 
     run() {
