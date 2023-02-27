@@ -1,9 +1,10 @@
 const fs = require('fs');
 
 try {
-    const status = JSON.parse(fs.readFileSync('./status/status.json').toString());
+    const workdir = process.env.WORKDIR ?? process.cwd();
+    const status = JSON.parse(fs.readFileSync(`${workdir}/status/status.json`).toString());
     const updatedAgoSeconds = (new Date().getTime() - new Date(status.Timestamp).getTime()) / 1000;
-    if (updatedAgoSeconds > 5 * 60) {
+    if (updatedAgoSeconds > 10 * 60) {
         console.log(`Timestamp was not updated in status.json for ${updatedAgoSeconds} seconds.`);
         process.exit(128);
     }

@@ -1,3 +1,5 @@
+import {REPO_URL} from "./constants";
+
 export class Lambda {
     public projectName: string;
     public taskName: string;
@@ -5,6 +7,7 @@ export class Lambda {
     public args: any;
     public fn: any;
     public isRunning: boolean;
+    private githubUrl: string;
 
     constructor(projectName, taskName, type, fn, args) {
         this.projectName = projectName;
@@ -12,6 +15,7 @@ export class Lambda {
         this.type = type;
         this.fn = fn;
         this.args = args;
+        this.githubUrl = `${REPO_URL}/blob/master/projects/${projectName}/index.js`;
         this.isRunning = false;
     }
 }

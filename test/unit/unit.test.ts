@@ -4,17 +4,19 @@ import {Engine} from "../../src/engine";
 import {guardians} from "../fixtures";
 import {set} from 'mockdate'
 import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN} from "../../src/constants";
-import {intervalToMinutes, validateCron, getMatchingFiles, getCommittee, calcGasPrice, error} from "../../src/utils";
+import {intervalToMinutes, validateCron, getMatchingFiles, getCommittee, calcGasPrice, getCurrentGuardian} from "../../src/utils";
 import {SOURCE_API, SOURCE_FEE_HISTORY} from "../../src/constants";
-import {account, erc20s} from "@defi.org/web3-candies";
 import {useChaiBigNumber} from "@defi.org/web3-candies/dist/hardhat";
+import {stub} from "sinon"
+import * as utils from "../../src/utils"
+import process from "process";
 
 useChaiBigNumber()
 
 
 describe("Utils", () => {
     it("Should return a task list", () => {
-        expect(getMatchingFiles("./test/e2e", "index.js")).to.not.be.empty;
+        expect(getMatchingFiles(`${process.cwd()}/test/unit/`, "index.js")).to.not.be.empty;
     })
     it("Should have exactly 1 guardian as current node", async () => {
         const committee = await getCommittee("http://54.95.108.148/services/management-service/status");
@@ -43,24 +45,29 @@ describe("Utils", () => {
         expect(() => intervalToMinutes(pattern)).to.throw();
     });
     it("Should have api source", async () => {
-        const result = await calcGasPrice(1, {"oldestBlock": "0x7bd95f", "reward": [["0x59a"]],"baseFeePerGas": ["0x211ce","0x1d9ca"],"gasUsedRatio": [0.0770745]}, 2);
+        const result = await calcGasPrice('', 1, {"oldestBlock": "0x7bd95f", "reward": [["0x59a"]],"baseFeePerGas": ["0x211ce","0x1d9ca"],"gasUsedRatio": [0.0770745]}, 2);
         expect(result).to.include.all.keys("maxPriorityFeePerGas", "maxFeePerGas", "source");
         expect(result.source).to.equal(SOURCE_API);
     });
-    // it("Should have feeHistory source", async () => {
-    //     process.env["OWLRACLE_APIKEY"] = 'blabla'
-    //     const result = await calcGasPrice(1, {"oldestBlock": "0x7bd95f", "reward": [["0x59a"]],"baseFeePerGas": ["0x211ce","0x1d9ca"],"gasUsedRatio": [0.0770745]}, 2);
-    //     expect(result).to.include.all.keys("maxPriorityFeePerGas", "maxFeePerGas", "source");
-    //     expect(result.source).to.equal(SOURCE_FEE_HISTORY);
-    // });
+    it("Should have feeHistory source", async () => {
+        const result = await calcGasPrice('blabla', 1, {"oldestBlock": "0x7bd95f", "reward": [["0x59a"]],"baseFeePerGas": ["0x211ce","0x1d9ca"],"gasUsedRatio": [0.0770745]}, 2);
+        expect(result).to.include.all.keys("maxPriorityFeePerGas", "maxFeePerGas", "source");
+        expect(result.source).to.equal(SOURCE_FEE_HISTORY);
+    });
 
 })
 
 describe("Engine", () => {
+    process.env['NODENAME'] = getCurrentGuardian(guardians) ?? process.env.NODE_ENV ?? 'debug';
     let engine: Engine;
     beforeEach(() => {
-        engine = new Engine({},{}, guardians, {})
+        engine = new Engine({},{}, guardians, {}, {"owlracleApikey": ""})
     })
+
+    it("Should set guardian name", () => {
+        expect(engine.selfName).to.equal("NEOPLY");
+        expect(engine.status.myNode).to.equal(guardians["NEOPLY"]);
+    });
 
     describe("Leader election", () => {
         describe("Time based leader", () => {
@@ -90,40 +97,40 @@ describe("Engine", () => {
         });
     });
 
-    // describe("Test handlers", () => {
-    //
-    //     class SignerMock {
-    //         ___manual___() {
-    //             return {key: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"}
-    //         }
-    //     }
-    //
-    //     const engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock)
-    //     engine.loadModules({test: "/Users/idanatar/sources/orbs-lambda-backend/test/e2e/index.js"}); // TODO
-    //
-    //     it("onInterval", async () => {
-    //         set(TASK_TIME_DIVISION_MIN*MS_TO_MINUTES*Object.keys(guardians).length);
-    //         await engine._onInterval()
-    //         const dai = erc20s.eth.DAI();
-    //         const owner = await account();
-    //         expect(await dai.methods.allowance(owner, owner).call()).bignumber.eq(1);
-    //         expect(engine.runningTasks).to.equal(0);
-    //     });
-    //     it("onCron", async () => {
-    //         const lambda = engine.lambdas['test'][1]
-    //         await engine._onCron(lambda)
-    //         const wbtc = erc20s.eth.WBTC();
-    //         const owner = await account();
-    //         expect(await wbtc.methods.allowance(owner, owner).call()).bignumber.eq(1);
-    //         expect(engine.runningTasks).to.equal(0);
-    //     });
-    //     it("onEvent", async () => {
-    //         const lambda = engine.lambdas['test'][2]
-    //         await engine._onEvent({transactionHash: "0x09c3be8189eb5bdd9ab559dcddb3ae09d2b394a5e96fef3566a3232e088fa3"}, lambda)
-    //         const weth = erc20s.eth.WETH();
-    //         const owner = await account();
-    //         expect(await weth.methods.allowance(owner, owner).call()).bignumber.eq(1);
-    //         expect(engine.runningTasks).to.equal(0);
-    //     });
-    // })
+    describe("Test handlers", async () => {
+        let engine;
+        beforeEach(() => {
+            engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock(), {"owlracleApikey": ""})
+            engine.loadModules({test: `${process.cwd()}/test/unit/index.js`});
+        })
+
+        class SignerMock {
+            async ___manual___() {
+                return Promise.resolve({key: process.env.PK})
+            }
+        }
+
+        stub(utils, "biSend").callsFake(() => {return});
+
+        it("onInterval", async () => {
+            set(TASK_TIME_DIVISION_MIN*MS_TO_MINUTES*Object.keys(guardians).length);
+            await engine._onInterval()
+            expect(engine.status.successTX).to.have.lengthOf(1)
+            expect(engine.runningTasks).to.equal(0);
+        });
+
+        it("onCron", async () => {
+            const lambda = engine.lambdas['test'][1]
+            await engine._onCron(lambda)
+            expect(engine.status.successTX).to.have.lengthOf(1)
+            expect(engine.runningTasks).to.equal(0);
+        });
+
+        it("onEvent", async () => {
+            const lambda = engine.lambdas['test'][2]
+            await engine._onEvent({transactionHash: "0x09c3be8189eb5bdd9ab559dcddb3ae09d2b394a5e96fef3566a3232e088fa3"}, lambda)
+            expect(engine.status.successTX).to.have.lengthOf(1)
+            expect(engine.runningTasks).to.equal(0);
+        });
+    })
 })

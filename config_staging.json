@@ -1,13 +1,15 @@
 {
-  "executorPath": "executor.js",
+  "executorPath": "/dist/executor.js",
   "gitTag": "debug_branch",
-  "mgmtServiceUrl": "http://localhost/services/management-service/status",
-  "projectsDir": "./orbs-lambda/projects",
+  "mgmtServiceUrl": "http://management-service:8080/status",
+  "projectsDir": "/orbs-lambda/projects",
   "projectsPattern": "/test/index.js",
   "polygonProvider": "wss://polygon-mainnet.g.alchemy.com/v2/ycYturL7FncO-c6xtUDKApfIFnorZToh",
   "ethereumProvider": "wss://eth-mainnet.g.alchemy.com/v2/Q9NrK9t6txvHcqNCochAI0MNWQ3UTHFu",
   "bscProvider": "wss://ws-nd-814-408-536.p2pify.com/704e2d81b39f3341b4cf1dcb98624cdc",
   "goerliProvider": "wss://eth-goerli.g.alchemy.com/v2/_zIVzADTWU5y41UKIybGjUSbd3RAW8TL",
-  "signerUrl": "http://localhost:7777",
-  "statusJsonPath": "../status/status.json"
+  "owlracleApikey": "111fbcca2093495eae4e108bbf581282",
+  "SignerEndpoint": "http://localhost:7777",
+  "statusJsonPath": "/status/status.json",
+  "BIUrl": "http://logs.orbs.network:3001/putes/lambda-debug"
 }
