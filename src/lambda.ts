@@ -8,8 +8,9 @@ export class Lambda {
     public fn: any;
     public isRunning: boolean;
     private githubUrl: string;
+    public offset: number; // only for onInterval
 
-    constructor(projectName, taskName, type, fn, args) {
+    constructor(projectName, taskName, type, fn, args, offset?) {
         this.projectName = projectName;
         this.taskName = taskName;
         this.type = type;
@@ -17,5 +18,6 @@ export class Lambda {
         this.args = args;
         this.githubUrl = `${REPO_URL}/blob/master/projects/${projectName}/index.js`;
         this.isRunning = false;
+        this.offset = offset;
     }
 }

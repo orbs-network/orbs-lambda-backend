@@ -4,7 +4,15 @@ import {Engine} from "../../src/engine";
 import {guardians} from "../fixtures";
 import {set} from 'mockdate'
 import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN} from "../../src/constants";
-import {intervalToMinutes, validateCron, getMatchingFiles, getCommittee, calcGasPrice, getCurrentGuardian} from "../../src/utils";
+import {
+    intervalToMinutes,
+    validateCron,
+    getMatchingFiles,
+    getCommittee,
+    calcGasPrice,
+    getCurrentGuardian,
+    getProjectOffset
+} from "../../src/utils";
 import {SOURCE_API, SOURCE_FEE_HISTORY} from "../../src/constants";
 import {useChaiBigNumber} from "@defi.org/web3-candies/dist/hardhat";
 import {stub} from "sinon"
@@ -85,15 +93,27 @@ describe("Engine", () => {
 
     describe("Should run onInterval", () => {
         it("Should always return true for 1m", () => {
-            expect(engine.shouldRunInterval("project", "1m")).to.be.true;
+            const offset = getProjectOffset("project", intervalToMinutes("1m"));
+            expect(engine.shouldRunInterval("project", "1m", offset)).to.be.true;
         });
         it("Should return true", () => {
+            const offset = getProjectOffset("project1", intervalToMinutes("2m"));
             set(1668410745)
-            expect(engine.shouldRunInterval("project1", "2m")).to.be.true;
+            expect(engine.shouldRunInterval("project1", "2m", offset)).to.be.true;
         });
         it("Should return false", () => {
+            const offset = getProjectOffset("project", intervalToMinutes("2m"));
             set(1668410745)
-            expect(engine.shouldRunInterval("project", "2m")).to.be.false;
+            expect(engine.shouldRunInterval("project", "2m", offset)).to.be.false;
+        });
+    });
+
+    describe("getNextInvocations", () => {
+        it("Should return next invocations", () => {
+            engine.lambdas = {"revault":[{"projectName":"revault","taskName":"updatePools","type":"onCron","args":{"cron":"0 0 * * 1","network":"polygon"},"githubUrl":"https://github.com/orbs-network/orbs-lambda/blob/master/projects/revault/index.js","isRunning":false},{"projectName":"revault","taskName":"updateTvls","type":"onInterval","args":{"interval":"7m","network":"bsc"},"githubUrl":"https://github.com/orbs-network/orbs-lambda/blob/master/projects/revault/index.js","isRunning":false,"offset":6},{"projectName":"revault","taskName":"updatePools","type":"onInterval","args":{"interval":"7h","network":"bsc"},"githubUrl":"https://github.com/orbs-network/orbs-lambda/blob/master/projects/revault/index.js","isRunning":false,"offset":209},{"projectName":"revault","taskName":"updatePools","type":"onInterval","args":{"interval":"1d","network":"bsc"},"githubUrl":"https://github.com/orbs-network/orbs-lambda/blob/master/projects/revault/index.js","isRunning":false,"offset":1229}]};
+            set(1677578520000);
+            const next = engine.getNextInvocations();
+            expect(next).deep.equal([{"revault_updatePools":"Mon, 06 Mar 2023 00:00:00 GMT"},{"revault_updateTvls":"Tue, 28 Feb 2023 10:04:00 GMT"},{"revault_updatePools":"Tue, 28 Feb 2023 16:29:00 GMT"},{"revault_updatePools":"Tue, 28 Feb 2023 20:29:00 GMT"}]);
         });
     });
 

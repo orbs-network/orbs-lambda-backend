@@ -87,4 +87,3 @@ process.on('message', async (message: {type: string, payload: any}) => {
             error(`Unsupported message type: ${message.type}`)
     }
 });
-

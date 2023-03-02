@@ -1,12 +1,23 @@
 import Web3 from "web3";
 import {Lambda} from "./lambda";
 import {scheduleJob} from "node-schedule";
-import {biSend, calcGasPrice, debug, error, hashStringToNumber, intervalToMinutes, log, validateCron} from "./utils";
+import {
+    biSend,
+    calcGasPrice,
+    debug,
+    error,
+    getProjectOffset,
+    hashStringToNumber,
+    intervalToMinutes,
+    log,
+    validateCron
+} from "./utils";
 import {AbiItem} from "web3-utils";
 import {ContractOptions} from "web3-eth-contract";
 import {MS_TO_MINUTES, TASK_TIME_DIVISION_MIN, REWARDS_PERCENTILES, MAX_LAST_TX, TYPE_ON_CRON, TYPE_ON_INTERVAL, TYPE_ON_BLOCKS, TYPE_ON_EVENT} from './constants';
 import {CustomProvider} from "./customProvider";
 import process from "process";
+import {parseExpression} from "cron-parser";
 
 export class Engine {
     private readonly guardians: {};
@@ -18,7 +29,7 @@ export class Engine {
     private readonly networksMapping: {};
     private readonly signer: any;
     selfName: string;
-    readonly status: { tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number, errors: string[] };
+    readonly status: { nextInvocations: {}[], tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number, errors: string[] };
     private readonly tasksMap: any;
     private readonly alwaysLeader: boolean;
     private readonly config: any;
@@ -43,6 +54,7 @@ export class Engine {
             leaderIndex: -1,
             leaderName: '',
             tasks: {},
+            nextInvocations: [],
             successTX: [],
             failTX: [],
             balance: {},
@@ -120,10 +132,9 @@ export class Engine {
         return this.alwaysLeader || Number(num.modulo(Object.keys(this.guardians).length)) === this.selfIndex;
     }
 
-    shouldRunInterval(projectName, interval) {
+    shouldRunInterval(projectName, interval, offset) {
         const epochMinutes = Math.floor(new Date().getTime()/MS_TO_MINUTES);
         const intervalMinutes = intervalToMinutes(interval);
-        const offset = Number(hashStringToNumber(projectName).modulo(intervalMinutes));
         return !((epochMinutes - offset) % intervalMinutes);
     }
 
@@ -178,7 +189,7 @@ export class Engine {
         if (!this.isShuttingDown && this.isLeaderTime()) {
             for (const projectName in this.lambdas) {
                 for (const lambda of this.lambdas[projectName]) {
-                    if (lambda.type === TYPE_ON_INTERVAL && this.shouldRunInterval(projectName, lambda.args.interval)) {
+                    if (lambda.type === TYPE_ON_INTERVAL && this.shouldRunInterval(projectName, lambda.args.interval, lambda.offset)) {
                         await this._runTask(lambda)
                     }
                 }
@@ -199,7 +210,8 @@ export class Engine {
     }
 
     onInterval(fn, args) {
-        const lambda = new Lambda(this.currentProject, fn.name, TYPE_ON_INTERVAL, fn, args);
+        const offset = getProjectOffset(this.currentProject, intervalToMinutes(args.interval));
+        const lambda = new Lambda(this.currentProject, fn.name, TYPE_ON_INTERVAL, fn, args, offset);
         this.lambdas[this.currentProject].push(lambda);
     }
 
@@ -254,6 +266,27 @@ export class Engine {
         return parseInt(balance)/10**18;
     }
 
+    getNextInvocations() {
+        const nextInvocations: {}[] = [];
+        for (const project in this.lambdas) {
+            for (const task of this.lambdas[project]) {
+                if (task.type === TYPE_ON_INTERVAL) {
+                    const intervalMinutes = intervalToMinutes(task.args.interval);
+                    const epochMinutes = Math.floor(new Date().getTime()/MS_TO_MINUTES);
+                    const mod = epochMinutes % intervalMinutes;
+                    const next = task.offset > mod ? new Date((epochMinutes - mod + task.offset)*MS_TO_MINUTES) : new Date((epochMinutes - mod + task.offset + intervalMinutes)*MS_TO_MINUTES);
+                    nextInvocations.push({[`${task.projectName}_${task.taskName}`]: next.toUTCString()});
+                }
+                else if (task.type === TYPE_ON_CRON) {
+                    const interval = parseExpression(task.args.cron, {tz: 'UTC'});
+                    //@ts-ignore
+                    nextInvocations.push({[`${task.projectName}_${task.taskName}`]: new Date(interval.next()._date.ts).toUTCString()});
+                }
+            }
+        }
+        return nextInvocations;
+    }
+
     async generateState() {
         // @ts-ignore
         this.status.tasksCount = Object.values(this.lambdas).reduce((a,b) => a+b.length, 0);
@@ -262,6 +295,7 @@ export class Engine {
         this.status.leaderName = Object.keys(this.guardians)[leaderIndex];
         this.status.isLeader = this.alwaysLeader || this.isLeaderTime();
         this.status.tasks = this.lambdas;
+        this.status.nextInvocations = this.getNextInvocations();
         this.status.successTX.splice(MAX_LAST_TX);
         this.status.failTX.splice(MAX_LAST_TX);
         for (const network in this.networksMapping) {

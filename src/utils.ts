@@ -41,6 +41,10 @@ export function hashStringToNumber(str) {
     return new BigNumber(hash, 16);
 }
 
+export function getProjectOffset(projectName, intervalMinutes) {
+    return Number(hashStringToNumber(projectName).modulo(intervalMinutes));
+}
+
 export function log(obj) {
     const str = typeof(obj) === 'object' ? JSON.stringify(obj, undefined, 2) : obj;
     console.log(`${new Date().toISOString()} <${process.pid}> ${str}`)
