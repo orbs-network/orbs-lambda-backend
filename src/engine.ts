@@ -84,7 +84,7 @@ export class Engine {
         web3.eth.accounts.signTransaction = async function signTransaction(tx, privateKey, callback)  {
             tx.gas = tx.gas ?? await web3.eth.estimateGas(tx);
             // @ts-ignore
-            if (tx.type === '0x2' || tx.type === 2 || tx.type === undefined) { // EIP-1559
+            if (_this.networksMapping[network].eip1559 && (tx.type === '0x2' || tx.type === 2 || tx.type === undefined)) { // EIP-1559
                 delete tx.gasPrice;
                 if (!tx.maxFeePerGas) {
                     const feeHistory = await web3.eth.getFeeHistory(1, "pending", REWARDS_PERCENTILES);

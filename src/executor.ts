@@ -23,10 +23,10 @@ async function runEngine(config, guardians) {
     const engine = new Engine(
         tasksList,
         {
-            [NETWORK_POLYGON]: {"id": 137, "rpcUrl": config.polygonProvider},
-            [NETWORK_ETHEREUM]: {"id": 1, "rpcUrl": config.ethereumProvider},
-            [NETWORK_BSC]: {"id": 56, "rpcUrl": config.bscProvider},
-            [NETWORK_GOERLI]: {"id": 5, rpcUrl: config.goerliProvider}
+            [NETWORK_POLYGON]: {"id": 137, "rpcUrl": config.polygonProvider, eip1559: true},
+            [NETWORK_ETHEREUM]: {"id": 1, "rpcUrl": config.ethereumProvider, eip1559: true},
+            [NETWORK_BSC]: {"id": 56, "rpcUrl": config.bscProvider, eip1559: false},
+            [NETWORK_GOERLI]: {"id": 5, rpcUrl: config.goerliProvider, eip1559: true}
         },
         guardians,
         new Signer(config.SignerEndpoint),
