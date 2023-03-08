@@ -93,17 +93,17 @@ describe("Engine", () => {
 
     describe("Should run onInterval", () => {
         it("Should always return true for 1m", () => {
-            const offset = getProjectOffset("project", intervalToMinutes("1m"));
+            const offset = getProjectOffset("project", "fn", {interval: "1m"}, intervalToMinutes("1m"));
             expect(engine.shouldRunInterval("project", "1m", offset)).to.be.true;
         });
         it("Should return true", () => {
-            const offset = getProjectOffset("project1", intervalToMinutes("2m"));
-            set(1668410745)
+            const offset = getProjectOffset("project1", "fn", {interval: "2m"}, intervalToMinutes("2m"));
+            set(1668470000)
             expect(engine.shouldRunInterval("project1", "2m", offset)).to.be.true;
         });
         it("Should return false", () => {
-            const offset = getProjectOffset("project", intervalToMinutes("2m"));
-            set(1668410745)
+            const offset = getProjectOffset("project", "fn", {interval: "2m"}, intervalToMinutes("2m"));
+            set(1668410000)
             expect(engine.shouldRunInterval("project", "2m", offset)).to.be.false;
         });
     });

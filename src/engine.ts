@@ -210,7 +210,7 @@ export class Engine {
     }
 
     onInterval(fn, args) {
-        const offset = getProjectOffset(this.currentProject, intervalToMinutes(args.interval));
+        const offset = getProjectOffset(this.currentProject, fn.name, args, intervalToMinutes(args.interval));
         const lambda = new Lambda(this.currentProject, fn.name, TYPE_ON_INTERVAL, fn, args, offset);
         this.lambdas[this.currentProject].push(lambda);
     }

@@ -41,8 +41,8 @@ export function hashStringToNumber(str) {
     return new BigNumber(hash, 16);
 }
 
-export function getProjectOffset(projectName, intervalMinutes) {
-    return Number(hashStringToNumber(projectName).modulo(intervalMinutes));
+export function getProjectOffset(projectName, fnName, args, intervalMinutes) {
+    return Number(hashStringToNumber(projectName+fnName+JSON.stringify(args)).modulo(intervalMinutes));
 }
 
 export function log(obj) {
