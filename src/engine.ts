@@ -31,11 +31,11 @@ export class Engine {
     selfName: string;
     readonly status: { nextInvocations: {}[], tasks: {}; myNode: any; successTX: any[]; failTX: any[]; balance: {}; leaderName: string; isLeader: boolean; leaderIndex: number; tasksCount: number; EngineLaunchTime: number, errors: string[] };
     private readonly tasksMap: any;
-    private readonly alwaysLeader: boolean;
+    private readonly isLeader: boolean;
     private readonly config: any;
 
     constructor(tasksMap, networksMapping: {}, guardians: {[name: string] : {weight: number, nodeAddress: string, guardianAddress: string, ip: string, currentNode: boolean}}, signer, config) {
-        this.alwaysLeader = process.env.NODE_ENV !== 'prod';
+        this.isLeader = config.isLeader;
         this.tasksMap = tasksMap;
         this.signer = signer;
         this.guardians = guardians;
@@ -124,12 +124,12 @@ export class Engine {
     }
 
     isLeaderTime() {
-        return this.alwaysLeader || this.getCurrentLeaderIndex() === this.selfIndex;
+        return this.isLeader ?? this.getCurrentLeaderIndex() === this.selfIndex;
     }
 
     isLeaderHash(str: string) {
         const num = hashStringToNumber(str);
-        return this.alwaysLeader || Number(num.modulo(Object.keys(this.guardians).length)) === this.selfIndex;
+        return this.isLeader ?? Number(num.modulo(Object.keys(this.guardians).length)) === this.selfIndex;
     }
 
     shouldRunInterval(projectName, interval, offset) {
@@ -293,7 +293,7 @@ export class Engine {
         const leaderIndex = this.getCurrentLeaderIndex();
         this.status.leaderIndex = leaderIndex;
         this.status.leaderName = Object.keys(this.guardians)[leaderIndex];
-        this.status.isLeader = this.alwaysLeader || this.isLeaderTime();
+        this.status.isLeader = this.isLeaderTime();
         this.status.tasks = this.lambdas;
         this.status.nextInvocations = this.getNextInvocations();
         this.status.successTX.splice(MAX_LAST_TX);

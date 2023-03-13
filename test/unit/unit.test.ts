@@ -117,7 +117,7 @@ describe("Engine", () => {
         });
     });
 
-    describe("Test handlers", async () => {
+    describe.only("Test handlers", async () => {
         let engine;
         beforeEach(() => {
             engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock(), {"owlracleApikey": ""})
@@ -139,6 +139,15 @@ describe("Engine", () => {
             expect(engine.runningTasks).to.equal(0);
         });
 
+        it("onInterval - not leader", async () => {
+            engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock(), {owlracleApikey: "", isLeader: false})
+            engine.loadModules({test: `${process.cwd()}/test/unit/index.js`});
+            set(TASK_TIME_DIVISION_MIN*MS_TO_MINUTES*Object.keys(guardians).length);
+            await engine._onInterval()
+            expect(engine.status.successTX).to.have.lengthOf(0)
+            expect(engine.runningTasks).to.equal(0);
+        });
+
         it("onCron", async () => {
             const lambda = engine.lambdas['test'][1]
             await engine._onCron(lambda)
@@ -148,7 +157,16 @@ describe("Engine", () => {
 
         it("onEvent", async () => {
             const lambda = engine.lambdas['test'][2]
-            await engine._onEvent({transactionHash: "0x09c3be8189eb5bdd9ab559dcddb3ae09d2b394a5e96fef3566a3232e088fa3"}, lambda)
+            await engine._onEvent({transactionHash: "0x16"}, lambda)
+            expect(engine.status.successTX).to.have.lengthOf(1)
+            expect(engine.runningTasks).to.equal(0);
+        });
+
+        it.only("onEvent - always leader", async () => {
+            engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock(), {owlracleApikey: "", isLeader: true})
+            engine.loadModules({test: `${process.cwd()}/test/unit/index.js`});
+            const lambda = engine.lambdas['test'][2]
+            await engine._onEvent({transactionHash: ""}, lambda)
             expect(engine.status.successTX).to.have.lengthOf(1)
             expect(engine.runningTasks).to.equal(0);
         });
