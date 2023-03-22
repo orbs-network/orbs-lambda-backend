@@ -25,7 +25,7 @@ export function intervalToMinutes(pattern: string) : number {
                 return interval * 60 * 24;
         }
     }
-    throw new Error("Invalid pattern")
+    throw new Error(`Invalid interval pattern: ${pattern}`)
 }
 
 export function validateCron(pattern: string) : string {

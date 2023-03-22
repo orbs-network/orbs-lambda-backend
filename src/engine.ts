@@ -129,7 +129,10 @@ export class Engine {
 
     isLeaderHash(str: string) {
         const num = hashStringToNumber(str);
-        return this.isLeader ?? Number(num.modulo(Object.keys(this.guardians).length)) === this.selfIndex;
+        const leaderIndex = Number(num.modulo(Object.keys(this.guardians).length));
+        const leaderName = Object.keys(this.guardians)[leaderIndex];
+        biSend(this.config.BIUrl, {type: "hashLeader", leaderName});
+        return this.isLeader ?? leaderIndex === this.selfIndex;
     }
 
     shouldRunInterval(projectName, interval, offset) {
