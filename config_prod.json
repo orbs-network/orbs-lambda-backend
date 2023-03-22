@@ -1,6 +1,6 @@
 {
   "executorPath": "/dist/executor.js",
-  "gitTag": "prod",
+  "gitTag": "debug_branch",
   "mgmtServiceUrl": "http://management-service:8080/status",
   "projectsDir": "/orbs-lambda/projects",
   "projectsPattern": "/\\w+\\/.*index.js",
@@ -11,5 +11,6 @@
   "owlracleApikey": "111fbcca2093495eae4e108bbf581282",
   "SignerEndpoint": "http://localhost:7777",
   "statusJsonPath": "/status/status.json",
-  "BIUrl": "http://logs.orbs.network:3001/putes/lambda"
+  "BIUrl": "http://logs.orbs.network:3001/putes/lambda",
+  "isLeader": false
 }
