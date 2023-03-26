@@ -19,4 +19,4 @@ export const TYPE_ON_BLOCKS = "onBlocks";
 export const TYPE_ON_EVENT = "onEvent";
 export const TYPE_ON_CRON = "onCron";
 export const TYPE_ON_INTERVAL = "onInterval";
-export const SLEEP_DURATION = 5 * 60 * 1000;
+export const SLEEP_DURATION = 3 * 60 * 1000;

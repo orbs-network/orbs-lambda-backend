@@ -15,7 +15,7 @@ import process from "process";
 let engine;
 let ERRORS: string[] = [];
 
-async function runEngine(config, guardians) {
+function runEngine(config, guardians) {
     const tasksList = Object.fromEntries(
         getMatchingFiles(config.projectsDir, config.projectsPattern).map(f => [path.basename(path.dirname(f)), f]) // projectName: ProjectFile
     )
@@ -37,7 +37,7 @@ async function runEngine(config, guardians) {
         error(errMsg);
         ERRORS.push(errMsg)
     });
-
+    // TODO: notify parent
     process.on('uncaughtException', function (err, origin) {
         const errMsg = `Caught exception: ${err}\nException origin: ${origin}`;
         error(errMsg);
@@ -69,18 +69,27 @@ process.on('message', async (message: {type: string, payload: any}) => {
     switch(message.type) {
         case MESSAGE_START:
             log("Running Engine...")
-            engine = await runEngine(message.payload.config, message.payload.committee);
+            engine = runEngine(message.payload.config, message.payload.committee);
             break;
         case MESSAGE_GET_STATUS:
             debug("RECEIVED MESSAGE_GET_STATUS")
             if (engine) {
-                const status = await engine.generateState();
-                debug(status)
-                engine.status.errors = engine.status.errors.concat(ERRORS);
-                process.send!({type: MESSAGE_WRITE_STATUS, payload: status});
-                // clean up for next iteration
-                engine.status.errors = [];
-                ERRORS = [];
+                try {
+                    const status = await engine.generateState();
+                    debug(status)
+                    engine.status.errors = engine.status.errors.concat(ERRORS);
+                    process.send!({type: MESSAGE_WRITE_STATUS, payload: status});
+                    debug("Sent status to parent process")
+                    // clean up for next iteration
+                    engine.status.errors = [];
+                    ERRORS = [];
+                }
+                catch (e) {
+                    error(`Failed to generate state: ${e}`)
+                }
+            }
+            else {
+                log("GET_STATUS: engine is not ready")
             }
             break;
         default:

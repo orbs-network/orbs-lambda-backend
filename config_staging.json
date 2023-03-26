@@ -1,6 +1,6 @@
 {
   "executorPath": "/dist/executor.js",
-  "gitTag": "debug_branch",
+  "gitTag": "prod",
   "mgmtServiceUrl": "http://management-service:8080/status",
   "projectsDir": "/orbs-lambda/projects",
   "projectsPattern": "/\\w+\\/.*index.js",
