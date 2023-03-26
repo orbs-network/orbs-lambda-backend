@@ -18,7 +18,7 @@ COPY dist ./dist
 COPY ./entrypoint.sh ${WORKDIR}/service
 
 # NODE_ENV: debug | staging | prod
-ENV NODE_ENV staging
+ENV NODE_ENV prod
 COPY ./config_${NODE_ENV}.json ./
 
 # install healthcheck based on status.json
