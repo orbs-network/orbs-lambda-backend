@@ -18,6 +18,7 @@ import {Status} from "./interfaces";
 const children: {[id: string] : {instance: ChildProcess, killTimestamp: number} } = {}
 const workdir = process.env.WORKDIR ?? process.cwd();
 let ERRORS: string[] = [];
+let statusTimeout;
 
 function getConfig() {
     const confPath = `./config_${process.env.NODE_ENV}.json`;
@@ -73,6 +74,7 @@ function restart(executorPath, committee, oldChild) {
         child.on("message", async (message: { type: string, payload: any }) => {
             switch (message.type) {
                 case MESSAGE_WRITE_STATUS:
+                    clearTimeout(statusTimeout);
                     writeStatus(message.payload);
                     break;
                 default:
@@ -141,7 +143,14 @@ async function runLoop(config) {
             handleError(`Failed to check for git changes: ${e}`);
         }
 
+
+        // ask child process for status. If no response comes back - restart it
+        statusTimeout = setTimeout(() => {
+            console.error('Child process did not respond within 5 seconds');
+            child = restart(config.executorPath, newCommittee, child);
+            }, 5000);
         child.send({type: MESSAGE_GET_STATUS});
+
         await new Promise(resolve => setTimeout(resolve, SLEEP_DURATION));
     }
 }
