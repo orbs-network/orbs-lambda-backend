@@ -19,6 +19,7 @@ const children: {[id: string] : {instance: ChildProcess, killTimestamp: number} 
 const workdir = process.env.WORKDIR ?? process.cwd();
 let ERRORS: string[] = [];
 let statusTimeout;
+let responsePromise;
 
 function getConfig() {
     const confPath = `./config_${process.env.NODE_ENV}.json`;
@@ -71,15 +72,16 @@ function restart(executorPath, committee, oldChild) {
     log("Starting executor instance...");
     const child = fork(executorPath);
     if (child.pid) {
-        child.on("message", async (message: { type: string, payload: any }) => {
-            switch (message.type) {
-                case MESSAGE_WRITE_STATUS:
-                    clearTimeout(statusTimeout);
-                    writeStatus(message.payload);
-                    break;
-                default:
-                    error(`Unsupported message type: ${message.type}`)
-            }
+        responsePromise = new Promise((resolve) => {
+            child.on("message", (message: { type: string, payload: any }) => {
+                switch (message.type) {
+                    case MESSAGE_WRITE_STATUS:
+                        resolve(message.payload);
+                        break;
+                    default:
+                        error(`Unsupported message type: ${message.type}`)
+                }
+            });
         });
         child.on('exit', async function (code) {
             biSend(config.BIUrl, {type: 'shutDown', pid: child.pid, code})
@@ -148,8 +150,12 @@ async function runLoop(config) {
         statusTimeout = setTimeout(() => {
             console.error('Child process did not respond within 5 seconds');
             child = restart(config.executorPath, newCommittee, child);
-            }, 5000);
+        }, 5000);
         child.send({type: MESSAGE_GET_STATUS});
+        responsePromise.then((response) => {
+            clearTimeout(statusTimeout);
+            writeStatus(response);
+        });
 
         await new Promise(resolve => setTimeout(resolve, SLEEP_DURATION));
     }
