@@ -46,7 +46,6 @@ function writeStatus(state: any = {}) {
                 Semantic: getCurrentVersion(workdir),
             },
             ...state,
-            config
         }
     }
     const errors: string[] = state.errors ? state.errors.concat(ERRORS): ERRORS;
@@ -178,7 +177,6 @@ process.on('uncaughtException', function (err, origin) {
 const launchTime = Date.now();
 log(`Service Lambda started. env = ${process.env.NODE_ENV}`);
 const config = getConfig()
-debug(`Input config: '${JSON.stringify(config)}'`);
 runLoop(config).catch((err) => {
     handleError(`Exception thrown from runLoop, shutting down: ${err.stack}`, true);
 });

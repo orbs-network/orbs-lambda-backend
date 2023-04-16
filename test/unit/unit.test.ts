@@ -117,7 +117,7 @@ describe("Engine", () => {
         });
     });
 
-    describe.only("Test handlers", async () => {
+    describe("Test handlers", async () => {
         let engine;
         beforeEach(() => {
             engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock(), {"owlracleApikey": ""})
@@ -162,7 +162,7 @@ describe("Engine", () => {
             expect(engine.runningTasks).to.equal(0);
         });
 
-        it.only("onEvent - always leader", async () => {
+        it("onEvent - always leader", async () => {
             engine = new Engine({}, {'ethereum': {"id": 1, "rpcUrl": "https://fake.url"}}, guardians, new SignerMock(), {owlracleApikey: "", isLeader: true})
             engine.loadModules({test: `${process.cwd()}/test/unit/index.js`});
             const lambda = engine.lambdas['test'][2]

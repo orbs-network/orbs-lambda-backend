@@ -41,8 +41,8 @@ describe("Test custom web3", async () => {
     stub(CustomProviderClass, "CustomProvider").callsFake((args) => {return new MockCustomProvider(args)});
     const engine = new Engine({},
         {
-        'goerli': {"id": 5, "rpcUrl": "wss://eth-goerli.g.alchemy.com/v2/_zIVzADTWU5y41UKIybGjUSbd3RAW8TL"},
-        "polygon": {id: 137, rpcUrl: "wss://eth-mainnet.g.alchemy.com/v2/Q9NrK9t6txvHcqNCochAI0MNWQ3UTHFu"}
+        'goerli': {"id": 5, "rpcUrl": process.env.NETWORK_URL_GOERLI},
+        // "polygon": {id: 137, rpcUrl: ""}
     }, guardians, new SignerMock(), {"owlracleApikey": ""});
     const web3 = await engine.initWeb3('goerli');
 
