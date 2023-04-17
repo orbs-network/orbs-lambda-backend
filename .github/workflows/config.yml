@@ -24,12 +24,13 @@ jobs:
       - run: ./create-version-file.sh
       - name: Run npm install
         run: npm install
-#      - name: Run tests
-#        env:
-#          NETWORK_URL_ETH: ${{ secrets.NETWORK_URL_ETH }}
-#          NETWORK_URL_GOERLI: ${{ secrets.NETWORK_URL_GOERLI }}
-#          PK: ${{ secrets.PK }}
-#        run: npm test
+      - name: Run tests
+        env:
+          NETWORK_URL_ETH: ${{ secrets.NETWORK_URL_ETH }}
+          NETWORK_URL_GOERLI: ${{ secrets.NETWORK_URL_GOERLI }}
+          OWLRACLE_APIKEY: ${{ secrets.OWLRACLE_APIKEY }}
+          PK: ${{ secrets.PK }}
+        run: npm test
       - run: ./docker-build.sh
       - name: release-to-docker-hub-staging
         env:

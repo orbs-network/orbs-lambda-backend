@@ -30,6 +30,17 @@ function getConfig() {
     return config;
 }
 
+function censorConfig(conf) {
+    const censoredConfig = Object.assign({}, conf);
+    censoredConfig.owlracleApikey = censoredConfig.owlracleApikey.slice(0, -10) + "**********"
+    for (const entry in censoredConfig) {
+        if (entry.endsWith("Provider")) {
+            censoredConfig[entry] = censoredConfig[entry].slice(0, -15) + "***************"
+        }
+    }
+    return censoredConfig;
+}
+
 function writeStatus(state: any = {}) {
     const now = new Date();
     state.ServiceLaunchTime = launchTime;
@@ -46,6 +57,7 @@ function writeStatus(state: any = {}) {
                 Semantic: getCurrentVersion(workdir),
             },
             ...state,
+            censoredConfig
         }
     }
     const errors: string[] = state.errors ? state.errors.concat(ERRORS): ERRORS;
@@ -177,6 +189,8 @@ process.on('uncaughtException', function (err, origin) {
 const launchTime = Date.now();
 log(`Service Lambda started. env = ${process.env.NODE_ENV}`);
 const config = getConfig()
+const censoredConfig = censorConfig(config);
+log(`Input config: '${JSON.stringify(censoredConfig)}'`);
 runLoop(config).catch((err) => {
     handleError(`Exception thrown from runLoop, shutting down: ${err.stack}`, true);
 });

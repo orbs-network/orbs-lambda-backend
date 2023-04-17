@@ -1,4 +1,5 @@
 export interface Config {
+    owlracleApikey: string;
     executorPath: string,
     gitTag: string,
     mgmtServiceUrl: string,

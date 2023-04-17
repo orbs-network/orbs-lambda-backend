@@ -53,7 +53,7 @@ describe("Utils", () => {
         expect(() => intervalToMinutes(pattern)).to.throw();
     });
     it("Should have api source", async () => {
-        const result = await calcGasPrice('', 1, {"oldestBlock": "0x7bd95f", "reward": [["0x59a"]],"baseFeePerGas": ["0x211ce","0x1d9ca"],"gasUsedRatio": [0.0770745]}, 2);
+        const result = await calcGasPrice(process.env.OWLRACLE_APIKEY, 1, {"oldestBlock": "0x7bd95f", "reward": [["0x59a"]],"baseFeePerGas": ["0x211ce","0x1d9ca"],"gasUsedRatio": [0.0770745]}, 2);
         expect(result).to.include.all.keys("maxPriorityFeePerGas", "maxFeePerGas", "source");
         expect(result.source).to.equal(SOURCE_API);
     });
