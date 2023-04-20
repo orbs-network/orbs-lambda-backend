@@ -57,7 +57,7 @@ function writeStatus(state: any = {}) {
                 Semantic: getCurrentVersion(workdir),
             },
             ...state,
-            censoredConfig
+            Config: censoredConfig
         }
     }
     const errors: string[] = state.errors ? state.errors.concat(ERRORS): ERRORS;
