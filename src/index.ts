@@ -83,16 +83,15 @@ function restart(executorPath, committee, oldChild) {
     log("Starting executor instance...");
     const child = fork(executorPath);
     if (child.pid) {
-        responsePromise = new Promise((resolve) => {
-            child.on("message", (message: { type: string, payload: any }) => {
-                switch (message.type) {
-                    case MESSAGE_WRITE_STATUS:
-                        resolve(message.payload);
-                        break;
-                    default:
-                        error(`Unsupported message type: ${message.type}`)
-                }
-            });
+        child.on("message", async (message: { type: string, payload: any }) => {
+            switch (message.type) {
+                case MESSAGE_WRITE_STATUS:
+                    clearTimeout(statusTimeout);
+                    writeStatus(message.payload);
+                    break;
+                default:
+                    error(`Unsupported message type: ${message.type}`)
+            }
         });
         child.on('exit', async function (code) {
             biSend(config.BIUrl, {type: 'shutDown', pid: child.pid, code})
@@ -156,17 +155,7 @@ async function runLoop(config) {
             handleError(`Failed to check for git changes: ${e}`);
         }
 
-
-        // ask child process for status. If no response comes back - restart it
-        statusTimeout = setTimeout(() => {
-            console.error('Child process did not respond within 5 seconds');
-            child = restart(config.executorPath, newCommittee, child);
-        }, 5000);
         child.send({type: MESSAGE_GET_STATUS});
-        responsePromise.then((response) => {
-            clearTimeout(statusTimeout);
-            writeStatus(response);
-        });
 
         await new Promise(resolve => setTimeout(resolve, SLEEP_DURATION));
     }

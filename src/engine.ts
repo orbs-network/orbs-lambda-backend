@@ -264,9 +264,13 @@ export class Engine {
     }
 
     async getBalance(network) {
-        const web3 = await this.initWeb3(network);
-        const balance = await web3.eth.getBalance(web3.eth.accounts.wallet[0].address);
-        return parseInt(balance)/10**18;
+        try {
+            const web3 = await this.initWeb3(network);
+            const balance = await web3.eth.getBalance(web3.eth.accounts.wallet[0].address);
+            return parseInt(balance) / 10 ** 18;
+        } catch(e) {
+            error(`Error while getting balance for ${network}: ${e}`)
+        }
     }
 
     getNextInvocations() {
@@ -292,7 +296,7 @@ export class Engine {
 
     async generateState() {
         // @ts-ignore
-        this.status.tasksCount = Object.values(this.lambdas).reduce((a,b) => a+b.length, 0);
+        this.status.tasksCount = Object.values(this.lambdas).reduce((a, b) => a + b.length, 0);
         const leaderIndex = this.getCurrentLeaderIndex();
         this.status.leaderIndex = leaderIndex;
         this.status.leaderName = Object.keys(this.guardians)[leaderIndex];
