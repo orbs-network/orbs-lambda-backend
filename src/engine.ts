@@ -63,7 +63,7 @@ export class Engine {
         };
     }
 
-    async initWeb3(network, reconnect=false) {
+    async initWeb3(network, reconnect=true) {
         const options = reconnect ? {
             clientConfig: {
                 keepalive: true,
@@ -247,7 +247,7 @@ export class Engine {
         this.lambdas[this.currentProject].push(lambda)
 
         // separate between the web3 object that's being passed to the handler (and later disposed) and the persistent one used for event listening
-        const web3Listener = await this.initWeb3(network, true);
+        const web3Listener = await this.initWeb3(network);
         const contract = new web3Listener.eth.Contract(abi, web3Listener.utils.toChecksumAddress(contractAddress));
 
         const _this = this;
@@ -264,12 +264,15 @@ export class Engine {
     }
 
     async getBalance(network) {
+        let web3;
         try {
-            const web3 = await this.initWeb3(network);
+            web3 = await this.initWeb3(network);
             const balance = await web3.eth.getBalance(web3.eth.accounts.wallet[0].address);
             return parseInt(balance) / 10 ** 18;
         } catch(e) {
             error(`Error while getting balance for ${network}: ${e}`)
+        } finally {
+            if (web3) await web3.currentProvider.disconnect();
         }
     }
 
