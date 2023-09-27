@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "devDependencies": {
+    "@orbs-network/ethereum-multicall": "^2.2.0",
     "@defi.org/web3-candies": "^4.5.1",
     "chai-as-promised": "^7.1.1",
     "common-js-file-extensions": "^1.0.4",
