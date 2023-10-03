@@ -19,7 +19,6 @@ const children: {[id: string] : {instance: ChildProcess, killTimestamp: number} 
 const workdir = process.env.WORKDIR ?? process.cwd();
 let ERRORS: string[] = [];
 let statusTimeout;
-let responsePromise;
 
 function getConfig() {
     const confPath = `./config_${process.env.NODE_ENV}.json`;
