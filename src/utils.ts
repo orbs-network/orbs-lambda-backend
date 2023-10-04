@@ -1,5 +1,5 @@
 import {parseExpression} from "cron-parser";
-import {readdirSync, readFileSync, statSync} from "fs";
+import {readdirSync, readFileSync, statSync, existsSync} from "fs";
 import path from "path";
 import fetch from "node-fetch";
 import process from "process";
@@ -118,12 +118,30 @@ export async function calcGasPrice(apiKey, chainId, feeHistory, providedPriority
     }
 }
 
+function setConfigEnvVars(config) {
+    config.executorPath = process.env.EXECUTOR_PATH ?? config.executorPath;
+    config.gitTag = process.env.GIT_TAG ?? config.gitTag;
+    config.mgmtServiceUrl = process.env.MGMT_SERVICE_URL ?? config.mgmtServiceUrl;
+    config.projectsDir = process.env.PROJECTS_DIR ?? config.projectsDir;
+    config.projectsPattern = process.env.PROJECTS_PATTERN ?? config.projectsPattern;
+    config.polygonProvider = process.env.POLYGON_PROVIDER ?? config.polygonProvider;
+    config.ethereumProvider = process.env.ETHEREUM_PROVIDER ?? config.ethereumProvider;
+    config.bscProvider = process.env.BSC_PROVIDER ?? config.bscProvider;
+    config.goerliProvider = process.env.GOERLI_PROVIDER ?? config.goerliProvider;
+    config.owlracleApikey = process.env.OWLRACLE_API_KEY ?? config.owlracleApikey;
+    config.SignerEndpoint = process.env.SIGNER_ENDPOINT ?? config.SignerEndpoint;
+    config.statusJsonPath = process.env.LAMBDA_STATUS_PATH ?? config.statusJsonPath;
+    config.BIUrl = process.env.BI_URL ?? config.BIUrl;
+    config.isLeader = process.env.IS_LEADER ? process.env.IS_LEADER === 'true' : config.isLeader;
+}
+
 export function parseArgs(argv: string[], confPath): Config {
     // management service passes the default configs as a cli arg ("--config config.json --config keys.json")
     // need to parse those and add our custom config to them
 
     let res;
-    const customConfig : Config = JSON.parse(readFileSync(confPath).toString());
+    let customConfig : Config = existsSync(confPath) ? JSON.parse(readFileSync(confPath).toString()) : {};
+    setConfigEnvVars(customConfig);
 
     // parse command line args
     const args = yargs(argv)
@@ -141,8 +159,8 @@ export function parseArgs(argv: string[], confPath): Config {
     try {
         res = Object.assign(
             {},
-            customConfig,
-            ...args.config.map((configPath) => JSON.parse(readFileSync(configPath).toString()))
+            ...(args.config ?? []).map((configPath) => JSON.parse(readFileSync(configPath).toString())),
+            customConfig
         );
     } catch (err) {
         error(`Cannot parse input JSON config files: [${args.config}].`);
